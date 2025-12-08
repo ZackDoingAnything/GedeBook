@@ -32,16 +32,38 @@
         #search-input {
             padding-left: 3rem; /* Make space for the icon */
         }
+        /* Floating Action Button (FAB) styles */
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 4rem;
+            height: 4rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .fab:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.3);
+        }
     </style>
     <script>
-        // Mock data for the book reviews
+        // FUNCTION to check authentication status and admin status
+        const isLoggedIn = () => localStorage.getItem('isLoggedIn') === 'true';
+        const isAdmin = () => isLoggedIn() && localStorage.getItem('isAdmin') === 'true';
+
+        // Mock data for the book reviews (used in the main feed)
         const reviewsData = [
-            { id: 1, title: "The Silent Patient", author: "Alex Michaelides", stars: 5, snippet: "A truly gripping psychological thriller that kept me guessing until the very last page...", fullReview: "The Silent Patient is a masterpiece of suspense. The narrative structure, slowly peeling back layers of Theo Faber's life and his patient Alicia Berenson's silence, is brilliantly executed. The twist is genuinely earned and makes you want to re-read the entire book immediately to spot the subtle clues. Highly recommended for anyone who loves dark, character-driven stories. It addresses themes of trauma, obsession, and the thin line between therapy and madness in a compelling way.", imageBg: "bg-amber-800/40", reviewer: "Alice K." },
-            { id: 2, title: "Project Hail Mary", author: "Andy Weir", stars: 5, snippet: "Ryland Grace. It's time to save the world! This book is pure, optimistic sci-fi joy.", fullReview: "Andy Weir does it again. This book is a perfect blend of high-stakes science, humor, and a genuinely lovable protagonist. The concept is inventive, the science is digestible yet fascinating, and the relationship between Grace and Rocky is genuinely touching. It’s an easy five stars and a must-read for fans of *The Martian*.", imageBg: "bg-blue-800/40", reviewer: "Benoit L." },
-            { id: 3, title: "The Seven Husbands of Evelyn Hugo", author: "Taylor Jenkins Reid", stars: 4, snippet: "Hollywood glamour, secrets, and a lifetime of dramatic choices. An absolute page-turner.", fullReview: "Evelyn Hugo is an unforgettable character. Her story is layered, heartbreaking, and ultimately triumphant. The novel cleverly explores celebrity culture, ambition, and unconditional love through the lens of a fictional Hollywood icon. While the ending felt slightly rushed, the journey was magnificent and deeply moving. A solid four out of five stars.", imageBg: "bg-pink-800/40", reviewer: "Carla D." },
-            { id: 4, title: "Where the Crawdads Sing", author: "Delia Owens", stars: 4, snippet: "Beautiful prose describing the marshlands and a gripping mystery at its heart. Loved the setting.", fullReview: "The setting in the North Carolina marsh is so vividly described it feels like a character itself. The story masterfully weaves together a coming-of-age narrative with a murder mystery, exploring themes of abandonment and natural survival. A powerful, if occasionally slow-paced, debut. Recommended for literary fiction lovers.", imageBg: "bg-green-800/40", reviewer: "David M." },
-            { id: 5, title: "Dune", author: "Frank Herbert", stars: 5, snippet: "An epic masterpiece of sci-fi, politics, and ecology. Long live the fighters!", fullReview: "Dune is not just a book; it's a foundational text for modern science fiction. The complexity of the world-building, the religious and political commentary, and the sheer scope of the story are unparalleled. It requires attention, but the payoff is immense. A timeless classic that remains a five-star read.", imageBg: "bg-red-800/40", reviewer: "Emily F." },
-            { id: 6, title: "Circe", author: "Madeline Miller", stars: 5, snippet: "A mesmerizing retelling of the Greek myth. Circe finally gets the voice she deserves.", fullReview: "Madeline Miller's prose is lyrical and immersive. Taking a minor figure from Greek mythology and giving her a complex, centuries-spanning life story is a feat of storytelling. The book is about self-discovery, motherhood, and power. It's a beautifully crafted, emotionally resonant novel.", imageBg: "bg-indigo-800/40", reviewer: "Frank G." },
+            { id: 1, title: "The Silent Patient", author: "Alex Michaelides", stars: 5, snippet: "A truly gripping psychological thriller that kept me guessing until the very last page...", fullReview: "The Silent Patient is a masterpiece of suspense. The narrative structure, slowly peeling back layers of Theo Faber's life and his patient Alicia Berenson's silence, is brilliantly executed. The twist is genuinely earned and makes you want to re-read the entire book immediately to spot the subtle clues. Highly recommended for anyone who loves dark, character-driven stories. It addresses themes of trauma, obsession, and the thin line between therapy and madness in a compelling way.", imageBg: "bg-amber-800/40", reviewer: "Alice K.", publisher: "Celadon Books", publicationDate: "February 5, 2019" },
+            { id: 2, title: "Project Hail Mary", author: "Andy Weir", stars: 5, snippet: "Ryland Grace. It's time to save the world! This book is pure, optimistic sci-fi joy.", fullReview: "Andy Weir does it again. This book is a perfect blend of high-stakes science, humor, and a genuinely lovable protagonist.The concept is inventive, the science is digestible yet fascinating, and the relationship between Grace and Rocky is genuinely touching. It’s an easy five stars and a must-read for fans of *The Martian*.", imageBg: "bg-blue-800/40", reviewer: "Benoit L.", publisher: "Ballantine Books", publicationDate: "May 4, 2021" },
+            { id: 3, title: "The Seven Husbands of Evelyn Hugo", author: "Taylor Jenkins Reid", stars: 4, snippet: "Hollywood glamour, secrets, and a lifetime of dramatic choices. An absolute page-turner.", fullReview: "Evelyn Hugo is an unforgettable character. Her story is layered, heartbreaking, and ultimately triumphant. The novel cleverly explores celebrity culture, ambition, and unconditional love through the lens of a fictional Hollywood icon. While the ending felt slightly rushed, the journey was magnificent and deeply moving. A solid four out of five stars.", imageBg: "bg-pink-800/40", reviewer: "Carla D.", publisher: "Atria Books", publicationDate: "June 13, 2017" },
+            { id: 4, title: "Where the Crawdads Sing", author: "Delia Owens", stars: 4, snippet: "Beautiful prose describing the marshlands and a gripping mystery at its heart. Loved the setting.", fullReview: "The setting in the North Carolina marsh is so vividly described it feels like a character itself. The story masterfully weaves together a coming-of-age narrative with a murder mystery, exploring themes of abandonment and natural survival. A powerful, if occasionally slow-paced, debut. Recommended for literary fiction lovers.", imageBg: "bg-green-800/40", reviewer: "David M.", publisher: "G.P. Putnam's Sons", publicationDate: "August 14, 2018" },
+            { id: 5, title: "Dune", author: "Frank Herbert", stars: 5, snippet: "An epic masterpiece of sci-fi, politics, and ecology. Long live the fighters!", fullReview: "Dune is not just a book; it's a foundational text for modern science fiction. The complexity of the world-building, the religious and political commentary, and the sheer scope of the story are unparalleled. It requires attention, but the payoff is immense. A timeless classic that remains a five-star read.", imageBg: "bg-red-800/40", reviewer: "Emily F.", publisher: "Chilton Books", publicationDate: "August 1965" },
+            { id: 6, title: "Circe", author: "Madeline Miller", stars: 5, snippet: "A mesmerizing retelling of the Greek myth. Circe finally gets the voice she deserves.", fullReview: "Madeline Miller's prose is lyrical and immersive. Taking a minor figure from Greek mythology and giving her a complex, centuries-spanning life story is a feat of storytelling. The book is about self-discovery, motherhood, and power. It's a beautifully crafted, emotionally resonant novel.", imageBg: "bg-indigo-800/40", reviewer: "Frank G.", publisher: "Little, Brown and Company", publicationDate: "April 10, 2018" },
         ];
 
         // Utility function to generate star icons
@@ -55,14 +77,13 @@
             const container = document.getElementById('review-cards-container');
             if (!container) return;
             
-            // Handle case where filteredReviews is undefined or empty
             const reviewsToRender = filteredReviews || reviewsData;
 
             if (reviewsToRender.length === 0) {
                  container.innerHTML = `
                     <div class="col-span-full p-8 text-center bg-white/70 rounded-xl border border-stone-200 text-stone-600">
                         <p class="text-xl font-semibold mb-2">No Reviews Found</p>
-                        <p>Try adjusting your search terms or minimum rating filter.</p>
+                        <p>Try adjusting your search terms or star rating filter.</p>
                     </div>
                  `;
                  return;
@@ -113,25 +134,24 @@
             `).join('');
         };
 
-        // Function to handle filtering and then rendering
+        // Function to handle filtering and then rendering (unchanged)
         window.updateDisplay = () => {
             const searchInput = document.getElementById('search-input');
             const starFilter = document.getElementById('star-filter');
             
             if (!searchInput || !starFilter) {
-                // If elements aren't ready, just render all reviews
                 renderCards(reviewsData);
                 return;
             }
 
             const searchTerm = searchInput.value.toLowerCase();
-            const minStars = parseInt(starFilter.value, 10);
+            const selectedStars = starFilter.value; 
 
             // 1. Filter Logic
             const filteredReviews = reviewsData.filter(review => {
                 const searchArea = `${review.title} ${review.author} ${review.reviewer}`.toLowerCase();
                 const matchesSearch = searchArea.includes(searchTerm);
-                const matchesRating = review.stars >= minStars;
+                const matchesRating = selectedStars === "0" || review.stars === parseInt(selectedStars, 10);
 
                 return matchesSearch && matchesRating;
             });
@@ -140,7 +160,7 @@
             renderCards(filteredReviews);
         };
         
-        // Modal functions
+        // Modal functions (unchanged)
         window.showModal = (id) => {
             const review = reviewsData.find(r => r.id === id);
             if (!review) return;
@@ -149,7 +169,7 @@
             const modalContainer = document.getElementById('modal-container');
             const content = document.getElementById('modal-content');
             
-            if (!modal || !modalContainer || !content) return; // Safety check
+            if (!modal || !modalContainer || !content) return; 
 
             content.innerHTML = `
                 <!-- Modal Header: Contains Title and Author -->
@@ -168,10 +188,19 @@
                 <!-- Modal Body -->
                 <div class="p-6 md:p-8 scroll-hidden overflow-y-auto max-h-[70vh]">
 
-                    <!-- 1. Book Image Placeholder (MOVED HERE: Under Author) -->
+                    <!-- 1. Book Image Placeholder -->
                     <div class="mb-8 h-64 w-40 mx-auto rounded-lg ${review.imageBg} opacity-50 flex items-center justify-center text-xl text-white font-semibold italic cozy-book-shadow">
                         "A Book's Journey"
                     </div>
+
+                    <!-- Publisher and Publication Date Info -->
+                    <div class="mb-6 p-4 bg-stone-50 rounded-lg border border-stone-100 text-stone-700 text-sm grid grid-cols-2 gap-2">
+                        <div class="font-semibold">Publisher:</div>
+                        <div>${review.publisher}</div>
+                        <div class="font-semibold">Publication Date:</div>
+                        <div>${review.publicationDate}</div>
+                    </div>
+
 
                     <!-- 2. Metadata (Reviewer and Stars) -->
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 pb-4 border-b border-stone-100">
@@ -214,9 +243,149 @@
                 document.body.classList.remove('overflow-hidden');
             }, 300); 
         };
+
+        // --- NEW: Review Posting Modal Logic (for FAB) ---
+        let currentReviewStars = 0;
+
+        window.showPostReviewModal = () => {
+            document.getElementById('post-modal-title').innerText = "Make a Review!";
+            document.getElementById('post-review-form').reset();
+            currentReviewStars = 0;
+            updateStarRating(0); // Reset stars
+            document.getElementById('post-review-modal').classList.remove('hidden');
+            // Show modal animation (omitted for brevity, similar to showModal)
+        };
         
-        // Initial call to render the cards (now updateDisplay)
-        document.addEventListener('DOMContentLoaded', window.updateDisplay);
+        window.hidePostReviewModal = () => {
+            document.getElementById('post-review-modal').classList.add('hidden');
+        };
+
+        window.updateStarRating = (rating) => {
+            currentReviewStars = rating;
+            const starContainer = document.getElementById('star-selector-container');
+            starContainer.innerHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                const star = document.createElement('span');
+                star.className = 'text-3xl cursor-pointer transition-colors';
+                star.style.color = i <= rating ? '#f59e0b' : '#d1d5db'; // amber-500 or gray-300
+                star.innerHTML = '★';
+                star.onclick = () => updateStarRating(i);
+                starContainer.appendChild(star);
+            }
+        };
+        
+        // Mock success/failure message display
+        window.showMessage = (message, isError = false) => {
+            const msgBox = document.getElementById('message-box');
+            msgBox.textContent = message;
+            msgBox.className = isError 
+                ? 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-red-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300'
+                : 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300';
+            msgBox.classList.remove('opacity-0', 'hidden');
+            setTimeout(() => {
+                msgBox.classList.add('opacity-0');
+                setTimeout(() => msgBox.classList.add('hidden'), 300);
+            }, 3000);
+        };
+
+        window.handlePostReview = () => {
+            event.preventDefault();
+            const form = document.getElementById('post-review-form');
+            const title = form.elements['book-title'].value;
+            
+            if (!title || currentReviewStars === 0 || !form.elements['full-review'].value) {
+                window.showMessage("Please fill out the title, review, and star rating.", true);
+                return;
+            }
+            
+            // Mock post submission
+            console.log("Mock Review Posted:", {
+                title: title,
+                stars: currentReviewStars,
+                review: form.elements['full-review'].value
+            });
+
+            window.hidePostReviewModal();
+            window.showMessage(`Review for "${title}" posted successfully!`);
+        };
+        
+        // --- END Review Posting Modal Logic ---
+
+        // Function to render the correct header and floating button based on login status
+        window.renderUI = () => {
+            const headerNav = document.getElementById('header-nav');
+            const fabContainer = document.getElementById('fab-container');
+            const profileLink = isAdmin() ? 'admin.html' : 'profile.html';
+            const profileIconColor = isAdmin() ? 'text-amber-700' : 'text-amber-600';
+
+            if (isLoggedIn()) {
+                // LOGGED IN STATE UI
+                headerNav.innerHTML = `
+                    <a href="${profileLink}" class="p-2 rounded-full bg-stone-100 hover:bg-stone-200 transition-colors cozy-shadow">
+                        <!-- Profile/Admin Icon -->
+                        <svg class="w-6 h-6 ${profileIconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </a>
+                `;
+                
+                // NEW LOGIC: Only show FAB if NOT Admin
+                if (!isAdmin()) {
+                    fabContainer.innerHTML = `
+                        <!-- Logged-in FAB: Only visible to regular users, calls new modal function -->
+                        <button 
+                            class="fab bg-amber-600 text-white cozy-shadow"
+                            onclick="showPostReviewModal()"
+                        >
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+                    `;
+                } else {
+                    // Hide FAB for Admin
+                    fabContainer.innerHTML = '';
+                }
+                
+            } else {
+                // LOGGED OUT STATE UI
+                headerNav.innerHTML = `
+                    <!-- Log In Link -->
+                    <a 
+                        href="login.html" 
+                        class="text-stone-600 hover:text-amber-700 font-medium transition-colors"
+                    >
+                        Log In
+                    </a>
+                    
+                    <!-- Sign Up Button -->
+                    <a 
+                        href="signup.html"
+                        class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors cozy-shadow"
+                    >
+                        Sign Up
+                    </a>
+                `;
+                fabContainer.innerHTML = `
+                    <!-- Logged-out FAB: Redirects directly to Login page -->
+                    <a 
+                        href="login.html" 
+                        class="fab bg-amber-600 text-white cozy-shadow"
+                    >
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    </a>
+                `;
+            }
+        };
+
+        // Initial call to render the cards and the UI state
+        document.addEventListener('DOMContentLoaded', () => {
+            window.updateDisplay();
+            window.renderUI();
+        });
+
     </script>
 </head>
 <body>
@@ -224,15 +393,25 @@
     <!-- Header / Navigation Bar -->
     <header class="bg-white/95 sticky top-0 z-20 cozy-shadow backdrop-blur-sm">
         <div class="max-w-4xl mx-auto p-4 flex justify-between items-center">
-            <h1 class="text-3xl font-extrabold text-amber-800 tracking-wider">
-                GedeBook
-            </h1>
-            <nav>
-                <a href="#" class="text-stone-600 hover:text-amber-700 font-medium transition-colors ml-4 sm:ml-6">Home</a>
-                <a href="#" class="text-stone-600 hover:text-amber-700 font-medium transition-colors ml-4 sm:ml-6">My Feed</a>
-                <button class="bg-amber-600 text-white px-4 py-2 rounded-lg ml-4 sm:ml-6 text-sm font-semibold hover:bg-amber-700 transition-colors cozy-shadow">
-                    Post Review
-                </button>
+            
+            <!-- Logo and Site Title Container -->
+            <div class="flex items-center space-x-3">
+                <!-- Logo Image (Placeholder URL, assuming it's in an 'images' folder) -->
+                <img 
+                    src="./images/logo.png" 
+                    alt="GedeBook Logo" 
+                    class="h-8 w-auto rounded-md shadow-md" 
+                    onerror="this.onerror=null; this.src='https://placehold.co/40x40/6d3d1e/ffffff?text=GB';"
+                >
+                <!-- Site Title -->
+                <a href="index.html" class="text-3xl font-extrabold text-amber-800 tracking-wider">
+                    GedeBook
+                </a>
+            </div>
+
+            <!-- Navigation and Auth Buttons (Dynamically rendered by JS) -->
+            <nav id="header-nav" class="flex items-center space-x-4">
+                <!-- Content injected by renderUI() -->
             </nav>
         </div>
     </header>
@@ -246,9 +425,9 @@
             <p class="text-stone-600">Find your next great read and share your literary journey with a community of book lovers. Dive into the latest reviews below.</p>
         </section>
 
-        <!-- Filter and Search Controls (New Section) -->
+        <!-- Filter and Search Controls -->
         <section class="mb-8 flex flex-col sm:flex-row gap-4">
-            <!-- Search Bar (Now wrapped in a relative container with an icon) -->
+            <!-- Search Bar -->
             <div class="relative flex-grow">
                 <input 
                     type="text" 
@@ -263,20 +442,22 @@
                 </svg>
             </div>
             
-            <!-- Dropdown Filter (Min Stars) -->
+            <!-- Dropdown Filter (Exact Stars) -->
             <select 
                 id="star-filter" 
                 class="w-full sm:w-48 p-3 border border-stone-300 rounded-lg cozy-shadow bg-white focus:ring-amber-500 focus:border-amber-500 transition-shadow"
                 onchange="updateDisplay()"
             >
-                <option value="0">Min Rating: All</option>
+                <option value="0">Rating: All</option>
                 <option value="5">★★★★★ (5 Stars)</option>
-                <option value="4">★★★★☆ (4+ Stars)</option>
-                <option value="3">★★★☆☆ (3+ Stars)</option>
+                <option value="4">★★★★☆ (4 Stars)</option>
+                <option value="3">★★★☆☆ (3 Stars)</option>
+                <option value="2">★★☆☆☆ (2 Stars)</option>
+                <option value="1">★☆☆☆☆ (1 Star)</option>
             </select>
         </section>
 
-        <!-- Review Card List - Updated responsive grid: 2 on mobile (default), 3 on tablet (md), 3 on desktop (lg) -->
+        <!-- Review Card List -->
         <section id="review-cards-container" class="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-3">
             <!-- Cards will be injected here by JavaScript -->
         </section>
@@ -285,13 +466,85 @@
         <div class="h-16"></div>
     </main>
 
+    <!-- Floating Action Button (Dynamically rendered by JS) -->
+    <div id="fab-container">
+        <!-- Content injected by renderUI() -->
+    </div>
+
     <!-- Full Review Modal (Hidden by default) -->
-    <!-- The onclick handler allows clicking the overlay to close the modal -->
     <div id="review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'review-modal') hideModal()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-0" id="modal-container">
             <!-- Modal Content will be injected here -->
             <div id="modal-content"></div>
         </div>
+    </div>
+    
+    <!-- NEW: Post/Edit Review Modal (Triggered by FAB or Profile Edit) -->
+    <div id="post-review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'post-review-modal') hidePostReviewModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-stone-100 flex items-start justify-between">
+                <h3 id="post-modal-title" class="text-2xl font-bold text-amber-800">Make a Review!</h3>
+                <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hidePostReviewModal()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body: Scrollable Form -->
+            <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
+                <form id="post-review-form" onsubmit="handlePostReview(); return false;" class="space-y-4">
+                    
+                    <!-- Title, Author, Rating -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="book-title" placeholder="Book Title (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" name="author" placeholder="Author (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <!-- Star Selector -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-2">Your Rating (1-5 Stars)</label>
+                        <div id="star-selector-container" class="flex space-x-2 text-3xl">
+                            <!-- Stars injected by updateStarRating() -->
+                        </div>
+                    </div>
+                    
+                    <!-- Optional Metadata -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <input type="text" name="publisher" placeholder="Publisher (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" name="publish-date" placeholder="Publication Date (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <!-- Book Image Upload -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-2">Book Image (Optional)</label>
+                        <input type="file" name="book-image" accept="image/*" class="w-full text-stone-700 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
+                    </div>
+
+                    <!-- Full Review Textarea -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-2">Your Full Review</label>
+                        <textarea name="full-review" rows="6" placeholder="Write your comprehensive review here..." required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="pt-4 flex justify-between">
+                        <button type="button" onclick="hidePostReviewModal()" class="bg-stone-300 text-stone-700 px-4 py-2 rounded-lg font-semibold hover:bg-stone-400 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-amber-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-amber-700 transition-colors cozy-shadow">
+                            Post Review
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation/Message Box -->
+    <div id="message-box" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300 opacity-0 hidden" role="alert">
+        <!-- Message content here -->
     </div>
 </body>
 </html>

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GedeBook - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load D3.js for charting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3f0;
+            min-height: 100vh;
+        }
+        .cozy-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .chart-container {
+            width: 100%;
+            height: 150px;
+        }
+        /* Custom scrollbar for moderation boxes */
+        .custom-scroll {
+            overflow-y: auto;
+            max-height: 400px;
+            padding-right: 0.5rem;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #d6d3d1; /* stone-300 */
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    </style>
+    <script>
+        // Check if user is actually admin
+        if (localStorage.getItem('isLoggedIn') !== 'true' || localStorage.getItem('isAdmin') !== 'true') {
+            window.location.href = 'index.html'; // Redirect non-admins/logged-out users
+        }
+        
+        // Log out functionality
+        window.handleAdminLogout = () => {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('isAdmin');
+            window.location.href = 'index.html'; 
+        };
+
+        // --- Mock Data for Dashboard ---
+        const MOCK_STATS_DATA = [
+            { month: 'Jul', posts: 150, accounts: 50, visitors: 2500 },
+            { month: 'Aug', posts: 180, accounts: 70, visitors: 3100 },
+            { month: 'Sep', posts: 210, accounts: 85, visitors: 3500 },
+            { month: 'Oct', posts: 250, accounts: 100, visitors: 4200 },
+            { month: 'Nov', posts: 280, accounts: 115, visitors: 4500 },
+            { month: 'Dec', posts: 320, accounts: 130, visitors: 5000 }
+        ];
+
+        const MOCK_USERS_DATA = [
+            { id: 101, name: "Alice K.", totalReviews: 4, status: "Active" },
+            { id: 102, name: "Benoit L.", totalReviews: 12, status: "Active" },
+            { id: 103, name: "Carla D.", totalReviews: 7, status: "Active" },
+            { id: 104, name: "David M.", totalReviews: 2, status: "Suspended" },
+            { id: 105, name: "Emily F.", totalReviews: 9, status: "Active" },
+            { id: 106, name: "Frank G.", totalReviews: 3, status: "Active" },
+            { id: 107, name: "Greg H.", totalReviews: 15, status: "Active" },
+            { id: 108, name: "Hannah I.", totalReviews: 1, status: "Active" },
+        ];
+
+        const MOCK_REVIEWS_DATA = {
+            101: [
+                { id: 1, book: "The Silent Patient", stars: 5, snippet: "Gripping thriller.", date: "2025-11-01" },
+                { id: 2, book: "Gone Girl", stars: 4, snippet: "Great twists.", date: "2025-11-15" },
+                { id: 3, book: "The Secret History", stars: 5, snippet: "A masterpiece.", date: "2025-12-01" },
+                { id: 4, book: "The Goldfinch", stars: 3, snippet: "Too long.", date: "2025-12-05" }
+            ],
+            102: [
+                { id: 5, book: "Project Hail Mary", stars: 5, snippet: "Sci-fi joy.", date: "2025-10-10" },
+                { id: 6, book: "Dune", stars: 5, snippet: "Epic classic.", date: "2025-10-20" },
+            ],
+            104: [
+                 { id: 7, book: "Moby Dick", stars: 1, snippet: "Unreadable.", date: "2025-09-01", reason: "Hateful content" },
+            ]
+        };
+
+        let activeUserId = null;
+
+
+        // --- Chart Rendering Function using D3.js ---
+
+        function renderChart(data, key, title, color) {
+            const containerId = `chart-${key}`;
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Clear previous content
+            container.innerHTML = '';
+            
+            const margin = { top: 10, right: 10, bottom: 20, left: 40 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = container.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select(`#${containerId}`)
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // X scale (Months)
+            const x = d3.scaleBand()
+                .range([0, width])
+                .domain(data.map(d => d.month))
+                .padding(0.3);
+
+            // Y scale (Value)
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d[key])])
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x).tickSize(0).tickPadding(10))
+                .selectAll("text")
+                .style("font-size", "10px")
+                .attr("fill", "#78716c"); // stone-500
+
+            // Add Y axis (simple ticks)
+            svg.append("g")
+                .call(d3.axisLeft(y).ticks(5).tickSize(-width).tickFormat(d3.format("d")))
+                .selectAll(".tick line")
+                .attr("stroke", "#e7e5e4"); // stone-200
+
+            svg.selectAll(".domain").remove(); // Remove axis line
+
+            // Add the line
+            const line = d3.line()
+                .x(d => x(d.month) + x.bandwidth() / 2)
+                .y(d => y(d[key]))
+                .curve(d3.curveMonotoneX);
+
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", color)
+                .attr("stroke-width", 3)
+                .attr("d", line);
+
+             // Add dots
+            svg.selectAll("dot")
+                .data(data)
+                .enter().append("circle")
+                .attr("cx", d => x(d.month) + x.bandwidth() / 2)
+                .attr("cy", d => y(d[key]))
+                .attr("r", 4)
+                .attr("fill", color);
+
+            // Add Tooltips (simplified text labels for the highest value)
+            const maxValue = d3.max(data, d => d[key]);
+            const maxData = data.find(d => d[key] === maxValue);
+            
+            svg.append("text")
+                .attr("x", x(maxData.month) + x.bandwidth() / 2)
+                .attr("y", y(maxData[key]) - 10)
+                .attr("text-anchor", "middle")
+                .style("font-size", "11px")
+                .style("font-weight", "600")
+                .attr("fill", color)
+                .text(maxValue);
+
+            // Chart Title
+            d3.select(`#${containerId}-title`).text(title);
+            d3.select(`#${containerId}-value`).text(data[data.length - 1][key]);
+
+        }
+
+        // --- Moderation Panel Rendering ---
+
+        window.renderUserList = () => {
+            const userListContainer = document.getElementById('user-list-container');
+            userListContainer.innerHTML = MOCK_USERS_DATA.map(user => `
+                <div 
+                    class="p-3 mb-2 rounded-lg cursor-pointer transition-colors ${activeUserId === user.id ? 'bg-amber-100 border-amber-400' : 'bg-white hover:bg-stone-50 border-stone-200'} border flex justify-between items-center"
+                    onclick="window.selectUser(${user.id})"
+                >
+                    <div>
+                        <p class="font-semibold text-stone-800">${user.name}</p>
+                        <p class="text-xs text-stone-500">${user.totalReviews} total reviews</p>
+                    </div>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${user.status === 'Suspended' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">
+                        ${user.status}
+                    </span>
+                </div>
+            `).join('');
+            
+            // Automatically select the first user on load if none selected
+            if (activeUserId === null && MOCK_USERS_DATA.length > 0) {
+                window.selectUser(MOCK_USERS_DATA[0].id);
+            }
+        };
+
+        window.selectUser = (userId) => {
+            activeUserId = userId;
+            window.renderUserList(); // Re-render list to highlight selection
+            window.renderUserReviews(userId);
+        };
+
+        window.renderUserReviews = (userId) => {
+            const reviewDetailContainer = document.getElementById('review-detail-container');
+            const reviews = MOCK_REVIEWS_DATA[userId] || [];
+            const user = MOCK_USERS_DATA.find(u => u.id === userId);
+
+            if (!user) {
+                reviewDetailContainer.innerHTML = `<p class="p-4 text-stone-500 text-center">User data not found.</p>`;
+                return;
+            }
+
+            if (reviews.length === 0) {
+                reviewDetailContainer.innerHTML = `<p class="p-4 text-stone-500 text-center">No reviews found for ${user.name}.</p>`;
+                return;
+            }
+
+            reviewDetailContainer.innerHTML = `
+                <h3 class="text-xl font-bold text-stone-700 mb-4 border-b pb-2">Reviews by ${user.name}</h3>
+                <div class="space-y-4">
+                    ${reviews.map(review => `
+                        <div class="p-4 bg-stone-50 rounded-lg border border-stone-200">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="font-bold text-base text-amber-800">${review.book}</p>
+                                <span class="text-sm">${review.stars}★</span>
+                            </div>
+                            <p class="text-sm text-stone-600 italic mb-2">"${review.snippet}"</p>
+                            ${review.reason ? `<p class="text-xs text-red-600 font-semibold mt-1">Flagged: ${review.reason}</p>` : ''}
+                            <div class="flex justify-end mt-2 space-x-2">
+                                <button class="text-xs text-blue-500 hover:text-blue-700 font-medium">View Full</button>
+                                <button class="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+        
+        // --- Initialization ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check auth status again on DOMContentLoaded
+            if (localStorage.getItem('isLoggedIn') !== 'true' || localStorage.getItem('isAdmin') !== 'true') {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // 1. Render Charts
+            renderChart(MOCK_STATS_DATA, 'posts', 'Posts Created', '#d97706'); // amber-600
+            renderChart(MOCK_STATS_DATA, 'accounts', 'New Accounts', '#449071'); // green/teal accent
+            renderChart(MOCK_STATS_DATA, 'visitors', 'Total Visitors', '#6366f1'); // indigo accent
+
+            // 2. Render Moderation Panels
+            window.renderUserList();
+        });
+    </script>
+</head>
+<body>
+    <!-- Header / Navigation Bar (Updated colors to match main theme) -->
+    <header class="bg-white/95 sticky top-0 z-20 cozy-shadow backdrop-blur-sm">
+        <div class="max-w-4xl mx-auto p-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <a href="index.html" class="text-stone-600 hover:text-amber-800 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                </a>
+                <h1 class="text-3xl font-extrabold text-amber-800 tracking-wider">
+                    Admin Dashboard
+                </h1>
+            </div>
+            <button 
+                onclick="handleAdminLogout()" 
+                class="bg-amber-200 text-amber-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-300 transition-colors cozy-shadow"
+            >
+                Log Out Admin
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-4xl mx-auto py-8 px-4">
+        
+        <!-- 1. Welcome Box -->
+        <section class="mb-8 p-6 bg-stone-100/70 rounded-xl border border-stone-200">
+            <h2 class="text-2xl font-bold text-stone-800 mb-2">Hello, GedeBook Administrator!</h2>
+            <p class="text-stone-600">You have privileged access to site statistics and moderation tools. All data below is simulated.</p>
+        </section>
+
+        <!-- 2. Site Stats Box with Graphics -->
+        <section class="mb-8 p-6 bg-white rounded-xl cozy-shadow border border-stone-200">
+            <h2 class="text-xl font-bold text-stone-800 mb-6">Site Statistics (Last 6 Months)</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Posts Chart -->
+                <div class="p-3 border border-stone-100 rounded-lg">
+                    <p id="chart-posts-title" class="text-sm font-semibold text-stone-500">Posts Created</p>
+                    <p class="text-2xl font-extrabold text-amber-700" id="chart-posts-value"></p>
+                    <div id="chart-posts" class="chart-container"></div>
+                </div>
+
+                <!-- Accounts Chart -->
+                <div class="p-3 border border-stone-100 rounded-lg">
+                    <p id="chart-accounts-title" class="text-sm font-semibold text-stone-500">New Accounts</p>
+                    <p class="text-2xl font-extrabold text-green-700" id="chart-accounts-value"></p>
+                    <div id="chart-accounts" class="chart-container"></div>
+                </div>
+
+                <!-- Visitors Chart -->
+                <div class="p-3 border border-stone-100 rounded-lg">
+                    <p id="chart-visitors-title" class="text-sm font-semibold text-stone-500">Total Visitors</p>
+                    <p class="text-2xl font-extrabold text-indigo-700" id="chart-visitors-value"></p>
+                    <div id="chart-visitors" class="chart-container"></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 3. Moderate Users and Reviews Box -->
+        <section class="mb-8 p-6 bg-white rounded-xl cozy-shadow border border-stone-200">
+            <h2 class="text-xl font-bold text-stone-800 mb-6">Moderation Tools</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- User List Panel -->
+                <div>
+                    <h3 class="font-semibold text-stone-700 mb-3">User List (Click to Select)</h3>
+                    <div id="user-list-container" class="custom-scroll pr-4">
+                        <!-- User items injected by renderUserList() -->
+                    </div>
+                </div>
+
+                <!-- Review Detail Panel -->
+                <div>
+                    <h3 class="font-semibold text-stone-700 mb-3">User Reviews Detail</h3>
+                    <div id="review-detail-container" class="custom-scroll pr-4 bg-stone-100/50 p-4 rounded-lg border border-stone-200">
+                        <p class="text-stone-500 text-center">Select a user to view their reviews.</p>
+                        <!-- Review details injected by renderUserReviews() -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</body>
+</html>

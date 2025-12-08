@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GedeBook - My Profile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3f0;
+            min-height: 100vh;
+        }
+        .cozy-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .custom-scroll {
+            overflow-y: auto;
+            max-height: 400px;
+            padding-right: 0.5rem;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #d6d3d1; /* stone-300 */
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    </style>
+    <script>
+        // --- AUTH/STATE CHECK ---
+        const isLoggedIn = () => localStorage.getItem('isLoggedIn') === 'true';
+        const isAdmin = () => isLoggedIn() && localStorage.getItem('isAdmin') === 'true';
+
+        if (!isLoggedIn() || isAdmin()) {
+            window.location.href = 'index.html'; 
+        }
+
+        // --- MOCK USER DATA ---
+        const MOCK_USER = {
+            pfp: 'https://placehold.co/80x80/fcd34d/6e4d0d?text=JS',
+            name: 'Jane Smith',
+            username: 'janereads',
+            email: 'jane.smith@example.com',
+            memberSince: 'Oct 2024',
+            totalReviews: 3,
+        };
+
+        const MOCK_USER_REVIEWS = [
+            { id: 10, title: "The Seven Husbands of Evelyn Hugo", author: "Taylor Jenkins Reid", stars: 4, snippet: "Hollywood glamour, secrets, and a lifetime of dramatic choices...", imageBg: "bg-pink-800/40", date: "2025-01-15", fullReview: "Evelyn Hugo is an unforgettable character. Her story is layered, heartbreaking, and ultimately triumphant." },
+            { id: 11, title: "Educated", author: "Tara Westover", stars: 5, snippet: "An incredible memoir about the power of education and overcoming adversity.", imageBg: "bg-orange-800/40", date: "2025-02-20", fullReview: "A powerful and moving story that challenges your assumptions about family and knowledge." },
+            { id: 12, title: "Normal People", author: "Sally Rooney", stars: 3, snippet: "A modern love story with complicated characters.", imageBg: "bg-blue-800/40", date: "2025-03-10", fullReview: "A very dialogue-driven book, perhaps a bit too slow in parts, but profoundly honest." },
+        ];
+        
+        // --- GLOBAL UI FUNCTIONS ---
+        
+        window.handleLogout = () => {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('isAdmin');
+            window.location.href = 'index.html'; 
+        };
+
+        window.showMessage = (message, isError = false) => {
+            const msgBox = document.getElementById('message-box');
+            msgBox.textContent = message;
+            msgBox.className = isError 
+                ? 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-red-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300'
+                : 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300';
+            msgBox.classList.remove('opacity-0', 'hidden');
+            setTimeout(() => {
+                msgBox.classList.add('opacity-0');
+                setTimeout(() => msgBox.classList.add('hidden'), 300);
+            }, 3000);
+        };
+
+
+        // --- PROFILE EDIT MODAL (Point 1) ---
+
+        window.showEditProfileModal = () => {
+            document.getElementById('edit-username').value = MOCK_USER.username;
+            // Note: Email cannot be edited in this mock. Password fields start empty.
+            document.getElementById('edit-profile-modal').classList.remove('hidden');
+        };
+
+        window.hideEditProfileModal = () => {
+            document.getElementById('edit-profile-modal').classList.add('hidden');
+        };
+
+        window.handleEditProfile = () => {
+            event.preventDefault();
+            const newUsername = document.getElementById('edit-username').value;
+            const newPassword = document.getElementById('new-password').value;
+            const oldPassword = document.getElementById('old-password').value;
+
+            // Mock Password Confirmation
+            if (newPassword && oldPassword !== '12345') { // Mock old password
+                window.showMessage("Old password confirmation failed!", true);
+                return;
+            }
+
+            // Mock save data
+            MOCK_USER.username = newUsername;
+            
+            // Re-render UI to show changes
+            renderProfile();
+            hideEditProfileModal();
+            window.showMessage("Profile updated successfully!");
+        };
+
+
+        // --- REVIEW POSTING/EDITING MODAL (Point 2 - Reused Logic) ---
+        let currentReviewStars = 0;
+        let isEditing = false;
+        let currentEditReviewId = null;
+
+        window.updateStarRating = (rating) => {
+            currentReviewStars = rating;
+            const starContainer = document.getElementById('star-selector-container');
+            starContainer.innerHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                const star = document.createElement('span');
+                star.className = 'text-3xl cursor-pointer transition-colors';
+                star.style.color = i <= rating ? '#f59e0b' : '#d1d5db';
+                star.innerHTML = '★';
+                star.onclick = () => updateStarRating(i);
+                starContainer.appendChild(star);
+            }
+        };
+
+        window.showPostReviewModal = (reviewToEdit = null) => {
+            const form = document.getElementById('post-review-form');
+            form.reset();
+            
+            if (reviewToEdit) {
+                isEditing = true;
+                currentEditReviewId = reviewToEdit.id;
+                document.getElementById('post-modal-title').innerText = "Edit Review";
+                form.elements['book-title'].value = reviewToEdit.title;
+                form.elements['author'].value = reviewToEdit.author;
+                form.elements['full-review'].value = reviewToEdit.fullReview;
+                updateStarRating(reviewToEdit.stars);
+                document.getElementById('post-submit-button').innerText = "Save Changes";
+
+            } else {
+                isEditing = false;
+                currentEditReviewId = null;
+                document.getElementById('post-modal-title').innerText = "Make a Review!";
+                updateStarRating(0);
+                document.getElementById('post-submit-button').innerText = "Post Review";
+            }
+            document.getElementById('post-review-modal').classList.remove('hidden');
+        };
+        
+        window.hidePostReviewModal = () => {
+            document.getElementById('post-review-modal').classList.add('hidden');
+        };
+
+        window.handlePostReview = () => {
+            event.preventDefault();
+            const form = document.getElementById('post-review-form');
+            const title = form.elements['book-title'].value;
+            
+            if (!title || currentReviewStars === 0 || !form.elements['full-review'].value) {
+                window.showMessage("Please fill out required fields and select a star rating.", true);
+                return;
+            }
+            
+            if (isEditing) {
+                // Mock Edit logic
+                const index = MOCK_USER_REVIEWS.findIndex(r => r.id === currentEditReviewId);
+                if (index !== -1) {
+                    MOCK_USER_REVIEWS[index].title = title;
+                    MOCK_USER_REVIEWS[index].stars = currentReviewStars;
+                    MOCK_USER_REVIEWS[index].author = form.elements['author'].value;
+                    MOCK_USER_REVIEWS[index].fullReview = form.elements['full-review'].value;
+                }
+                window.showMessage(`Review for "${title}" updated successfully!`);
+
+            } else {
+                // Mock Post logic
+                const newReview = { 
+                    id: Date.now(), 
+                    title: title, 
+                    author: form.elements['author'].value,
+                    stars: currentReviewStars, 
+                    snippet: form.elements['full-review'].value.substring(0, 50) + '...',
+                    fullReview: form.elements['full-review'].value,
+                    imageBg: "bg-yellow-800/40", // Default new review color
+                    date: new Date().toISOString().slice(0, 10),
+                };
+                MOCK_USER_REVIEWS.unshift(newReview);
+                MOCK_USER.totalReviews++;
+                window.showMessage(`Review for "${title}" posted successfully!`);
+            }
+            
+            window.hidePostReviewModal();
+            renderReviewsList(); // Re-render the list after post/edit
+        };
+
+        // --- REVIEW VIEW/EDIT/DELETE ACTIONS (Point 3) ---
+
+        window.handleReviewAction = (id, action) => {
+            const review = MOCK_USER_REVIEWS.find(r => r.id === id);
+            if (!review) return;
+
+            if (action === 'view') {
+                // Mock View functionality by showing a simple view modal (similar to index.html's showModal)
+                const modal = document.getElementById('simple-view-modal');
+                modal.querySelector('#view-title').textContent = review.title;
+                modal.querySelector('#view-author').textContent = 'by ' + review.author;
+                modal.querySelector('#view-stars').innerHTML = getStarsHtml(review.stars);
+                modal.querySelector('#view-full-review').textContent = review.fullReview;
+                modal.classList.remove('hidden');
+
+            } else if (action === 'edit') {
+                // Open post modal pre-filled
+                window.showPostReviewModal(review);
+
+            } else if (action === 'delete') {
+                if (confirm(`Are you sure you want to delete the review for "${review.title}"?`)) {
+                    const index = MOCK_USER_REVIEWS.findIndex(r => r.id === id);
+                    if (index !== -1) {
+                        MOCK_USER_REVIEWS.splice(index, 1);
+                        MOCK_USER.totalReviews--;
+                        renderProfile(); // Re-render everything
+                        window.showMessage(`Review for "${review.title}" deleted.`);
+                    }
+                }
+            }
+        };
+        
+        // Utility for index.html-style modal (replicated for self-containment)
+        const getStarsHtml = (count) => {
+            const fullStar = '<span class="text-amber-500">★</span>';
+            const emptyStar = '<span class="text-gray-300">★</span>';
+            return fullStar.repeat(count) + emptyStar.repeat(5 - count);
+        };
+
+        // --- RENDER FUNCTIONS ---
+        
+        window.renderProfile = () => {
+            // Render basic profile info
+            document.getElementById('profile-name').textContent = MOCK_USER.name;
+            document.getElementById('profile-username').textContent = `@${MOCK_USER.username}`;
+            document.getElementById('profile-email').textContent = MOCK_USER.email;
+            document.getElementById('profile-reviews').textContent = `${MOCK_USER.totalReviews} Reviews`;
+            document.getElementById('profile-since').textContent = `Member since ${MOCK_USER.memberSince}`;
+            document.getElementById('profile-pfp').src = MOCK_USER.pfp;
+            
+            renderReviewsList();
+        };
+
+        window.renderReviewsList = () => {
+            const container = document.getElementById('user-reviews-list');
+            if (!container) return;
+
+            if (MOCK_USER_REVIEWS.length === 0) {
+                container.innerHTML = `<p class="text-center text-stone-500 p-8">You haven't posted any reviews yet.</p>`;
+                return;
+            }
+
+            container.innerHTML = MOCK_USER_REVIEWS.map(review => `
+                <div class="p-4 bg-white rounded-xl cozy-shadow border border-stone-200 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-lg font-bold text-stone-800 leading-tight">${review.title}</h4>
+                        <p class="text-sm text-stone-500 italic mb-2">by ${review.author}</p>
+                        <div class="mb-3 text-sm">${getStarsHtml(review.stars)}</div>
+                        <p class="text-base text-stone-600 line-clamp-3 mb-4">${review.snippet}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
+                        <button class="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors" onclick="handleReviewAction(${review.id}, 'view')">
+                            View More
+                        </button>
+                        <button class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors" onclick="handleReviewAction(${review.id}, 'edit')">
+                            Edit
+                        </button>
+                        <button class="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors" onclick="handleReviewAction(${review.id}, 'delete')">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        };
+        
+        document.addEventListener('DOMContentLoaded', window.renderProfile);
+    </script>
+</head>
+<body>
+    <!-- Header / Navigation Bar -->
+    <header class="bg-white/95 sticky top-0 z-20 cozy-shadow backdrop-blur-sm">
+        <div class="max-w-4xl mx-auto p-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <a href="index.html" class="text-stone-600 hover:text-amber-800 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                </a>
+                <h1 class="text-3xl font-extrabold text-amber-800 tracking-wider">
+                    My Profile
+                </h1>
+            </div>
+            <button 
+                onclick="handleLogout()" 
+                class="bg-stone-200 text-stone-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-stone-300 transition-colors cozy-shadow"
+            >
+                Log Out
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-4xl mx-auto py-8 px-4">
+        
+        <!-- 1. Profile Section -->
+        <section class="mb-8 p-6 bg-white rounded-xl cozy-shadow border border-stone-200 relative">
+            
+            <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
+                <!-- Profile Picture -->
+                <img id="profile-pfp" src="" alt="Profile Picture" class="w-20 h-20 rounded-full object-cover border-4 border-amber-200 shadow-md">
+                
+                <!-- User Details -->
+                <div class="text-center sm:text-left">
+                    <h2 id="profile-name" class="text-2xl font-bold text-stone-800"></h2>
+                    <p id="profile-username" class="text-amber-600 italic mb-2"></p>
+                    <p id="profile-email" class="text-stone-500 text-sm"></p>
+                    <div class="mt-2 text-xs text-stone-400 font-medium">
+                        <span id="profile-reviews"></span> | <span id="profile-since"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Edit Button -->
+            <button 
+                onclick="showEditProfileModal()" 
+                class="absolute top-4 right-4 text-stone-500 hover:text-amber-700 transition-colors p-2 rounded-full hover:bg-stone-100"
+                title="Edit Profile"
+            >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.243-8.243z"></path></svg>
+            </button>
+        </section>
+
+        <!-- 2. Make a Review Button -->
+        <section class="mb-8 flex justify-center">
+            <button 
+                onclick="showPostReviewModal()"
+                class="bg-amber-600 text-white px-8 py-3 rounded-xl font-extrabold text-lg hover:bg-amber-700 transition-colors cozy-shadow flex items-center space-x-2"
+            >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Make a Review!</span>
+            </button>
+        </section>
+
+
+        <!-- 3. All Posts Selector -->
+        <section class="mb-8 p-6 bg-stone-100/70 rounded-xl border border-stone-200">
+            <h2 class="text-xl font-bold text-stone-800 mb-4">My Reviews</h2>
+            <div id="user-reviews-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- User reviews injected by renderReviewsList() -->
+            </div>
+        </section>
+
+        <!-- Footer Spacer -->
+        <div class="h-16"></div>
+    </main>
+
+    <!-- Modal 1: Edit Profile Modal (Point 1) -->
+    <div id="edit-profile-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'edit-profile-modal') hideEditProfileModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-stone-100">
+                <h3 class="text-2xl font-bold text-amber-800">Edit Profile Details</h3>
+            </div>
+            
+            <!-- Modal Body: Scrollable Form -->
+            <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
+                <form onsubmit="handleEditProfile(); return false;" class="space-y-4">
+                    
+                    <!-- PFP Upload -->
+                    <div class="flex items-center space-x-4 pb-2 border-b border-stone-100">
+                        <img src="${MOCK_USER.pfp}" alt="Current PFP" class="w-16 h-16 rounded-full object-cover shadow-inner">
+                        <div class="flex-grow">
+                            <label class="block text-sm font-medium text-stone-700 mb-1">Update Profile Picture (Drop or Select)</label>
+                            <input type="file" name="pfp-upload" accept="image/*" class="w-full text-stone-700 text-sm file:py-1 file:px-3 file:rounded-full file:border file:border-stone-300 file:text-sm file:font-semibold file:bg-white hover:file:bg-stone-50">
+                        </div>
+                    </div>
+                    
+                    <!-- Email (Read-Only) -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-1">Email (Cannot be changed)</label>
+                        <input type="email" value="${MOCK_USER.email}" disabled class="w-full p-3 bg-stone-100 border border-stone-300 rounded-lg text-stone-600 cursor-not-allowed">
+                    </div>
+
+                    <!-- Username -->
+                    <div>
+                        <label for="edit-username" class="block text-sm font-medium text-stone-700 mb-1">Username</label>
+                        <input type="text" id="edit-username" required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <!-- Password Update -->
+                    <div class="pt-4 border-t border-stone-100 space-y-4">
+                         <h4 class="font-semibold text-stone-700">Change Password</h4>
+                        <div>
+                            <label for="old-password" class="block text-sm font-medium text-stone-700 mb-1">Current Password (Required to change)</label>
+                            <input type="password" id="old-password" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label for="new-password" class="block text-sm font-medium text-stone-700 mb-1">New Password</label>
+                            <input type="password" id="new-password" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="pt-6 flex justify-between">
+                        <button type="button" onclick="hideEditProfileModal()" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors cozy-shadow">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-amber-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-amber-700 transition-colors cozy-shadow">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal 2: Post/Edit Review Modal (Point 2) -->
+    <div id="post-review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'post-review-modal') hidePostReviewModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-stone-100 flex items-start justify-between">
+                <h3 id="post-modal-title" class="text-2xl font-bold text-amber-800">Make a Review!</h3>
+                <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hidePostReviewModal()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body: Scrollable Form -->
+            <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
+                <form id="post-review-form" onsubmit="handlePostReview(); return false;" class="space-y-4">
+                    
+                    <!-- Title, Author, Rating -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="book-title" placeholder="Book Title (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" name="author" placeholder="Author (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <!-- Star Selector -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-2">Your Rating (1-5 Stars)</label>
+                        <div id="star-selector-container" class="flex space-x-2 text-3xl">
+                            <!-- Stars injected by updateStarRating() -->
+                        </div>
+                    </div>
+                    
+                    <!-- Optional Metadata -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <input type="text" name="publisher" placeholder="Publisher (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" name="publish-date" placeholder="Publication Date (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <!-- Book Image Upload -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-2">Book Image (Optional)</label>
+                        <input type="file" name="book-image" accept="image/*" class="w-full text-stone-700 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
+                    </div>
+
+                    <!-- Full Review Textarea -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-2">Your Full Review</label>
+                        <textarea name="full-review" rows="6" placeholder="Write your comprehensive review here..." required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="pt-4 flex justify-between">
+                        <button type="button" onclick="hidePostReviewModal()" class="bg-stone-300 text-stone-700 px-4 py-2 rounded-lg font-semibold hover:bg-stone-400 transition-colors">
+                            Cancel
+                        </button>
+                        <button id="post-submit-button" type="submit" class="bg-amber-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-amber-700 transition-colors cozy-shadow">
+                            Post Review
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: Simple View Modal (for View More action in post list) -->
+    <div id="simple-view-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'simple-view-modal') this.classList.add('hidden')">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow p-6">
+            <h3 id="view-title" class="text-3xl font-bold text-stone-800 mb-1"></h3>
+            <p id="view-author" class="text-lg text-stone-500 italic mb-3"></p>
+            <div id="view-stars" class="text-xl mb-4 pb-4 border-b border-stone-100"></div>
+            <p id="view-full-review" class="text-lg text-stone-600 whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto custom-scroll"></p>
+            <button onclick="document.getElementById('simple-view-modal').classList.add('hidden')" class="mt-6 w-full bg-stone-300 text-stone-700 p-3 rounded-lg font-semibold hover:bg-stone-400">Close</button>
+        </div>
+    </div>
+
+    <!-- Confirmation/Message Box -->
+    <div id="message-box" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300 opacity-0 hidden" role="alert">
+        <!-- Message content here -->
+    </div>
+</body>
+</html>
