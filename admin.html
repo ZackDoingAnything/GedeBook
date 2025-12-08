@@ -48,51 +48,87 @@
         window.handleAdminLogout = () => {
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('isAdmin');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userName');
             window.location.href = 'index.html'; 
         };
 
-        // --- Mock Data for Dashboard ---
-        const MOCK_STATS_DATA = [
-            { month: 'Jul', posts: 150, accounts: 50, visitors: 2500 },
-            { month: 'Aug', posts: 180, accounts: 70, visitors: 3100 },
-            { month: 'Sep', posts: 210, accounts: 85, visitors: 3500 },
-            { month: 'Oct', posts: 250, accounts: 100, visitors: 4200 },
-            { month: 'Nov', posts: 280, accounts: 115, visitors: 4500 },
-            { month: 'Dec', posts: 320, accounts: 130, visitors: 5000 }
-        ];
-
-        const MOCK_USERS_DATA = [
-            { id: 101, name: "Alice K.", totalReviews: 4, status: "Active" },
-            { id: 102, name: "Benoit L.", totalReviews: 12, status: "Active" },
-            { id: 103, name: "Carla D.", totalReviews: 7, status: "Active" },
-            { id: 104, name: "David M.", totalReviews: 2, status: "Suspended" },
-            { id: 105, name: "Emily F.", totalReviews: 9, status: "Active" },
-            { id: 106, name: "Frank G.", totalReviews: 3, status: "Active" },
-            { id: 107, name: "Greg H.", totalReviews: 15, status: "Active" },
-            { id: 108, name: "Hannah I.", totalReviews: 1, status: "Active" },
-        ];
-
-        const MOCK_REVIEWS_DATA = {
-            101: [
-                { id: 1, book: "The Silent Patient", stars: 5, snippet: "Gripping thriller.", date: "2025-11-01" },
-                { id: 2, book: "Gone Girl", stars: 4, snippet: "Great twists.", date: "2025-11-15" },
-                { id: 3, book: "The Secret History", stars: 5, snippet: "A masterpiece.", date: "2025-12-01" },
-                { id: 4, book: "The Goldfinch", stars: 3, snippet: "Too long.", date: "2025-12-05" }
-            ],
-            102: [
-                { id: 5, book: "Project Hail Mary", stars: 5, snippet: "Sci-fi joy.", date: "2025-10-10" },
-                { id: 6, book: "Dune", stars: 5, snippet: "Epic classic.", date: "2025-10-20" },
-            ],
-            104: [
-                 { id: 7, book: "Moby Dick", stars: 1, snippet: "Unreadable.", date: "2025-09-01", reason: "Hateful content" },
-            ]
+        // Utility function for messages
+        const showMessage = (message, isError = false) => {
+            const msgBox = document.getElementById('message-box');
+            if (!msgBox) {
+                console.warn("Message box element not found.");
+                return;
+            }
+            msgBox.textContent = message;
+            msgBox.className = isError 
+                ? 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-red-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300'
+                : 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300';
+            msgBox.classList.remove('opacity-0', 'hidden');
+            setTimeout(() => {
+                msgBox.classList.add('opacity-0');
+                setTimeout(() => msgBox.classList.add('hidden'), 300);
+            }, 3000);
         };
 
+        // Utility function to generate star icons
+        const getStarsHtml = (count) => {
+            const fullStar = '<span class="text-amber-500">★</span>';
+            const emptyStar = '<span class="text-gray-300">★</span>';
+            const validCount = Math.min(5, Math.max(0, count)); 
+            return fullStar.repeat(validCount) + emptyStar.repeat(5 - validCount);
+        };
+
+
+        // --- GLOBAL DATA STORE ---
+        let MOCK_STATS_DATA = [];
+        let MOCK_USERS_DATA = [];
+        let MOCK_REVIEWS_DATA = {}; // Stores fetched reviews by user ID
         let activeUserId = null;
 
 
-        // --- Chart Rendering Function using D3.js ---
+        // --- DATA FETCHING FUNCTIONS ---
+        const fetchStats = async () => {
+            try {
+                const response = await fetch('api.php?action=get_admin_stats');
+                const result = await response.json();
+                if (result.success) {
+                    MOCK_STATS_DATA = result.stats;
+                }
+            } catch (error) {
+                console.error("Failed to fetch stats:", error);
+            }
+        };
 
+        const fetchUserList = async () => {
+            try {
+                const response = await fetch('api.php?action=get_all_users');
+                const result = await response.json();
+                if (result.success) {
+                    MOCK_USERS_DATA = result.users;
+                }
+            } catch (error) {
+                console.error("Failed to fetch users:", error);
+            }
+        };
+
+        const fetchUserReviews = async (userId) => {
+            try {
+                const response = await fetch(`api.php?action=get_user_reviews_admin&user_id=${userId}`);
+                const result = await response.json();
+                if (result.success) {
+                    // This now includes the full review text for the modal
+                    MOCK_REVIEWS_DATA[userId] = result.reviews; 
+                    return result.reviews;
+                }
+            } catch (error) {
+                console.error(`Failed to fetch reviews for user ${userId}:`, error);
+                return [];
+            }
+        };
+
+
+        // --- Chart Rendering Function using D3.js (UNCHANGED) ---
         function renderChart(data, key, title, color) {
             const containerId = `chart-${key}`;
             const container = document.getElementById(containerId);
@@ -177,37 +213,182 @@
             // Chart Title
             d3.select(`#${containerId}-title`).text(title);
             d3.select(`#${containerId}-value`).text(data[data.length - 1][key]);
-
         }
 
-        // --- Moderation Panel Rendering ---
+
+        // --- MODERATION ACTION FUNCTIONS ---
+
+        window.handleDeleteAccount = async (userId, username) => {
+            if (!confirm(`WARNING: Are you sure you want to permanently DELETE the account for user '${username}' (ID: ${userId})? This will also remove ALL of their reviews.`)) return;
+
+            try {
+                const response = await fetch('api.php?action=admin_delete_user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showMessage(result.message);
+                    
+                    // Remove user from local data store
+                    MOCK_USERS_DATA = MOCK_USERS_DATA.filter(u => u.id !== userId);
+                    
+                    // Reset active user if the deleted user was selected
+                    if (activeUserId === userId) {
+                        activeUserId = null;
+                        document.getElementById('review-detail-container').innerHTML = `<p class="p-4 text-stone-500 text-center">User account deleted. Select a user to view their reviews.</p>`;
+                    }
+
+                    window.renderUserList();
+                } else {
+                    showMessage(result.message || "Account deletion failed.", true);
+                }
+            } catch (error) {
+                showMessage("Failed to connect to server for account deletion.", true);
+            }
+        };
+
+
+        window.handleAdminReviewDelete = async (reviewId, username) => {
+            if (!confirm(`Are you sure you want to permanently REMOVE review ID ${reviewId} by ${username}?`)) return;
+
+            try {
+                const response = await fetch('api.php?action=admin_delete_review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reviewId })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showMessage(result.message);
+                    
+                    // Refresh user list and selected user reviews
+                    await fetchUserList(); 
+                    if (activeUserId) {
+                        // Clear the cache for the selected user and re-fetch
+                        delete MOCK_REVIEWS_DATA[activeUserId];
+                        await window.selectUser(activeUserId); 
+                    } else {
+                        window.renderUserList();
+                    }
+                } else {
+                    showMessage(result.message || "Review deletion failed.", true);
+                }
+            } catch (error) {
+                showMessage("Failed to connect to server for review deletion.", true);
+            }
+        };
+
+        // --- NEW: ADMIN MODAL FUNCTIONS (for viewing full review) ---
+        window.showAdminModal = (review) => {
+            const modal = document.getElementById('admin-review-modal');
+            const modalContainer = document.getElementById('admin-modal-container');
+            const content = document.getElementById('admin-modal-content');
+            
+            if (!modal || !modalContainer || !content) return; 
+
+            // Use the review object's data to populate the modal
+            content.innerHTML = `
+                <div class="p-6 md:p-8 border-b border-stone-100 flex items-start justify-between">
+                    <div>
+                        <h3 class="text-3xl font-bold text-stone-800 mb-1">${review.book}</h3>
+                        <p class="text-lg text-stone-500 italic">Review Details</p>
+                    </div>
+                    <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hideAdminModal()">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="p-6 md:p-8 scroll-hidden overflow-y-auto max-h-[70vh]">
+
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 pb-4 border-b border-stone-100">
+                        <div class="mb-2 sm:mb-0">
+                            <span class="text-base font-semibold text-stone-700">Rating:</span>
+                        </div>
+                        <div class="text-xl">${getStarsHtml(review.stars)}</div>
+                    </div>
+
+                    ${review.reason ? `<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 font-semibold">Flagged Reason: ${review.reason}</div>` : ''}
+
+                    <p class="text-lg text-stone-600 whitespace-pre-wrap leading-relaxed">${review.fullReview || "Full review content not available."}</p>
+                    <p class="mt-4 text-sm text-stone-400">Review ID: ${review.id} | Date: ${review.date}</p>
+                    
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContainer.classList.remove('scale-95', 'opacity-0');
+                modalContainer.classList.add('scale-100', 'opacity-100');
+            }, 10); 
+            document.body.classList.add('overflow-hidden');
+        };
+
+        window.hideAdminModal = () => {
+            const modal = document.getElementById('admin-review-modal');
+            const modalContainer = document.getElementById('admin-modal-container');
+
+            if (!modal || !modalContainer) return;
+
+            modalContainer.classList.remove('scale-100', 'opacity-100');
+            modalContainer.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }, 300); 
+        };
+        // --- END ADMIN MODAL FUNCTIONS ---
+
+
+        // --- Moderation Panel Rendering (UPDATED) ---
 
         window.renderUserList = () => {
             const userListContainer = document.getElementById('user-list-container');
             userListContainer.innerHTML = MOCK_USERS_DATA.map(user => `
                 <div 
                     class="p-3 mb-2 rounded-lg cursor-pointer transition-colors ${activeUserId === user.id ? 'bg-amber-100 border-amber-400' : 'bg-white hover:bg-stone-50 border-stone-200'} border flex justify-between items-center"
-                    onclick="window.selectUser(${user.id})"
+                    onclick="window.selectUser('${user.id}')"
                 >
                     <div>
                         <p class="font-semibold text-stone-800">${user.name}</p>
                         <p class="text-xs text-stone-500">${user.totalReviews} total reviews</p>
                     </div>
-                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${user.status === 'Suspended' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">
-                        ${user.status}
-                    </span>
+                    <div class="flex items-center space-x-2">
+                        <!-- Replaced Suspend/Activate with Delete Account -->
+                        <button 
+                            onclick="event.stopPropagation(); handleDeleteAccount('${user.id}', '${user.username}')"
+                            class="text-xs px-2 py-1 rounded transition-colors bg-red-500 hover:bg-red-600 text-white font-medium cozy-shadow"
+                        >
+                            Delete Account
+                        </button>
+                    </div>
                 </div>
             `).join('');
             
             // Automatically select the first user on load if none selected
             if (activeUserId === null && MOCK_USERS_DATA.length > 0) {
                 window.selectUser(MOCK_USERS_DATA[0].id);
+            } else if (MOCK_USERS_DATA.length === 0) {
+                 document.getElementById('review-detail-container').innerHTML = `<p class="p-4 text-stone-500 text-center">No users left to moderate.</p>`;
             }
         };
 
-        window.selectUser = (userId) => {
+        window.selectUser = async (userId) => {
             activeUserId = userId;
             window.renderUserList(); // Re-render list to highlight selection
+            
+            // Fetch reviews if not already in cache, then render
+            if (!MOCK_REVIEWS_DATA[userId]) {
+                await fetchUserReviews(userId);
+            }
             window.renderUserReviews(userId);
         };
 
@@ -222,12 +403,12 @@
             }
 
             if (reviews.length === 0) {
-                reviewDetailContainer.innerHTML = `<p class="p-4 text-stone-500 text-center">No reviews found for ${user.name}.</p>`;
+                reviewDetailContainer.innerHTML = `<p class="p-4 text-stone-500 text-center">No reviews found for ${user.name || user.username}.</p>`;
                 return;
             }
 
             reviewDetailContainer.innerHTML = `
-                <h3 class="text-xl font-bold text-stone-700 mb-4 border-b pb-2">Reviews by ${user.name}</h3>
+                <h3 class="text-xl font-bold text-stone-700 mb-4 border-b pb-2">Reviews by ${user.name || user.username}</h3>
                 <div class="space-y-4">
                     ${reviews.map(review => `
                         <div class="p-4 bg-stone-50 rounded-lg border border-stone-200">
@@ -238,8 +419,9 @@
                             <p class="text-sm text-stone-600 italic mb-2">"${review.snippet}"</p>
                             ${review.reason ? `<p class="text-xs text-red-600 font-semibold mt-1">Flagged: ${review.reason}</p>` : ''}
                             <div class="flex justify-end mt-2 space-x-2">
-                                <button class="text-xs text-blue-500 hover:text-blue-700 font-medium">View Full</button>
-                                <button class="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
+                                <!-- Updated button to call the new modal function -->
+                                <button onclick='showAdminModal(${JSON.stringify(review)})' class="text-xs text-blue-500 hover:text-blue-700 font-medium">View Full</button>
+                                <button onclick="handleAdminReviewDelete('${review.id}', '${user.username}')" class="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
                             </div>
                         </div>
                     `).join('')}
@@ -249,19 +431,25 @@
         
         // --- Initialization ---
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Check auth status again on DOMContentLoaded
             if (localStorage.getItem('isLoggedIn') !== 'true' || localStorage.getItem('isAdmin') !== 'true') {
                 window.location.href = 'index.html';
                 return;
             }
 
-            // 1. Render Charts
-            renderChart(MOCK_STATS_DATA, 'posts', 'Posts Created', '#d97706'); // amber-600
-            renderChart(MOCK_STATS_DATA, 'accounts', 'New Accounts', '#449071'); // green/teal accent
-            renderChart(MOCK_STATS_DATA, 'visitors', 'Total Visitors', '#6366f1'); // indigo accent
+            // 1. Fetch Data
+            await fetchStats();
+            await fetchUserList();
 
-            // 2. Render Moderation Panels
+            // 2. Render Charts
+            if (MOCK_STATS_DATA.length > 0) {
+                renderChart(MOCK_STATS_DATA, 'posts', 'Posts Created', '#d97706'); 
+                renderChart(MOCK_STATS_DATA, 'accounts', 'New Accounts', '#449071');
+                renderChart(MOCK_STATS_DATA, 'visitors', 'Total Visitors', '#6366f1'); 
+            }
+
+            // 3. Render Moderation Panels
             window.renderUserList();
         });
     </script>
@@ -349,5 +537,16 @@
         </section>
 
     </main>
+    
+    <!-- New: Full Review Modal (Reuses styling from index.html) -->
+    <div id="admin-review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'admin-review-modal') hideAdminModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-0" id="admin-modal-container">
+            <!-- Content will be injected here -->
+            <div id="admin-modal-content"></div>
+        </div>
+    </div>
+
+<div id="message-box" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300 opacity-0 hidden" role="alert">
+        </div>
 </body>
 </html>

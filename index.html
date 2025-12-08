@@ -310,15 +310,16 @@
             const author = form.elements['author'].value;
             const fullReview = form.elements['full-review'].value;
             
+            // NEW FIELDS
+            const publisher = form.elements['publisher'].value;
+            const publicationDate = form.elements['publish-date'].value; // Currently collects text/year
+
             if (!title || currentReviewStars === 0 || !fullReview) {
                 window.showMessage("Please fill out the title, review, and star rating.", true);
                 return;
             }
             
-            // ** NEW AJAX POST LOGIC **
-            // NOTE: This POST logic assumes the user's ID is stored in localStorage
             const reviewerId = localStorage.getItem('userId');
-            const reviewerName = localStorage.getItem('userName') || 'Anonymous';
 
             if (!reviewerId) {
                 window.showMessage("You must be logged in to post a review.", true);
@@ -328,28 +329,28 @@
             try {
                 const response = await fetch('api.php?action=post_review', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         title: title,
                         author: author,
                         stars: currentReviewStars,
                         fullReview: fullReview,
-                        reviewerId: reviewerId, // Send the user ID to PHP
-                        // Other optional fields like publisher, date, etc., can be added here
+                        reviewerId: reviewerId, 
+                        // ** NEW DATA FIELDS **
+                        publisher: publisher,
+                        publicationDate: publicationDate 
                     })
                 });
 
                 const result = await response.json();
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     window.hidePostReviewModal();
                     window.showMessage(`Review for "${title}" posted successfully!`);
                     
-                    // Refresh data from the server
+                    // Force refresh data from the server
                     loadedReviewsData = []; 
-                    await window.updateDisplay(); // Reloads data and re-renders cards
+                    await window.updateDisplay();
 
                 } else {
                     window.showMessage(`Post failed: ${result.message}`, true);

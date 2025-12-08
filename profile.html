@@ -35,32 +35,24 @@
         // --- AUTH/STATE CHECK ---
         const isLoggedIn = () => localStorage.getItem('isLoggedIn') === 'true';
         const isAdmin = () => isLoggedIn() && localStorage.getItem('isAdmin') === 'true';
+        const currentUserId = localStorage.getItem('userId');
 
         if (!isLoggedIn() || isAdmin()) {
             window.location.href = 'index.html'; 
         }
-
-        // --- MOCK USER DATA ---
-        const MOCK_USER = {
-            pfp: 'https://placehold.co/80x80/fcd34d/6e4d0d?text=JS',
-            name: 'Jane Smith',
-            username: 'janereads',
-            email: 'jane.smith@example.com',
-            memberSince: 'Oct 2024',
-            totalReviews: 3,
-        };
-
-        const MOCK_USER_REVIEWS = [
-            { id: 10, title: "The Seven Husbands of Evelyn Hugo", author: "Taylor Jenkins Reid", stars: 4, snippet: "Hollywood glamour, secrets, and a lifetime of dramatic choices...", imageBg: "bg-pink-800/40", date: "2025-01-15", fullReview: "Evelyn Hugo is an unforgettable character. Her story is layered, heartbreaking, and ultimately triumphant." },
-            { id: 11, title: "Educated", author: "Tara Westover", stars: 5, snippet: "An incredible memoir about the power of education and overcoming adversity.", imageBg: "bg-orange-800/40", date: "2025-02-20", fullReview: "A powerful and moving story that challenges your assumptions about family and knowledge." },
-            { id: 12, title: "Normal People", author: "Sally Rooney", stars: 3, snippet: "A modern love story with complicated characters.", imageBg: "bg-blue-800/40", date: "2025-03-10", fullReview: "A very dialogue-driven book, perhaps a bit too slow in parts, but profoundly honest." },
-        ];
         
+        // --- GLOBAL DATA STORE ---
+        let profileData = {};
+        let userReviews = [];
+
+
         // --- GLOBAL UI FUNCTIONS ---
         
         window.handleLogout = () => {
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('isAdmin');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userName');
             window.location.href = 'index.html'; 
         };
 
@@ -76,13 +68,50 @@
                 setTimeout(() => msgBox.classList.add('hidden'), 300);
             }, 3000);
         };
+        
+        // Utility for index.html-style modal
+        const getStarsHtml = (count) => {
+            const fullStar = '<span class="text-amber-500">★</span>';
+            const emptyStar = '<span class="text-gray-300">★</span>';
+            return fullStar.repeat(count) + emptyStar.repeat(5 - count);
+        };
+
+
+        // --- DATA FETCHING (NEW) ---
+
+        window.fetchProfileData = async () => {
+             if (!currentUserId) return;
+
+             try {
+                const response = await fetch(`api.php?action=get_user_data&user_id=${currentUserId}`);
+                
+                if (!response.ok) throw new Error('Failed to fetch user data.');
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    profileData = result.user;
+                    profileData.totalReviews = result.total_reviews;
+                    userReviews = result.reviews;
+                    renderProfile();
+                } else {
+                    window.showMessage(result.message, true);
+                }
+
+             } catch (error) {
+                console.error("Profile data fetch failed:", error);
+                window.showMessage("Failed to load profile. Check API connection.", true);
+             }
+        };
 
 
         // --- PROFILE EDIT MODAL (Point 1) ---
+        // NOTE: The PHP endpoints for profile update (username/password) are NOT yet built.
+        // This function remains mock for now, but uses the fetched data.
 
         window.showEditProfileModal = () => {
-            document.getElementById('edit-username').value = MOCK_USER.username;
-            // Note: Email cannot be edited in this mock. Password fields start empty.
+            document.getElementById('edit-username').value = profileData.username;
+            document.getElementById('edit-email-readonly').value = profileData.email; // Assuming read-only input has this ID
             document.getElementById('edit-profile-modal').classList.remove('hidden');
         };
 
@@ -92,23 +121,9 @@
 
         window.handleEditProfile = () => {
             event.preventDefault();
-            const newUsername = document.getElementById('edit-username').value;
-            const newPassword = document.getElementById('new-password').value;
-            const oldPassword = document.getElementById('old-password').value;
-
-            // Mock Password Confirmation
-            if (newPassword && oldPassword !== '12345') { // Mock old password
-                window.showMessage("Old password confirmation failed!", true);
-                return;
-            }
-
-            // Mock save data
-            MOCK_USER.username = newUsername;
-            
-            // Re-render UI to show changes
-            renderProfile();
+            // This is currently MOCK logic (no API call implemented yet)
+            window.showMessage("Profile Update Functionality is under construction!", true);
             hideEditProfileModal();
-            window.showMessage("Profile updated successfully!");
         };
 
 
@@ -142,6 +157,8 @@
                 form.elements['book-title'].value = reviewToEdit.title;
                 form.elements['author'].value = reviewToEdit.author;
                 form.elements['full-review'].value = reviewToEdit.fullReview;
+                form.elements['publisher'].value = reviewToEdit.publisher; // Populate publisher
+                form.elements['publish-date'].value = reviewToEdit.publicationDate; // Populate date
                 updateStarRating(reviewToEdit.stars);
                 document.getElementById('post-submit-button').innerText = "Save Changes";
 
@@ -159,56 +176,64 @@
             document.getElementById('post-review-modal').classList.add('hidden');
         };
 
-        window.handlePostReview = () => {
+        window.handlePostReview = async () => {
             event.preventDefault();
             const form = document.getElementById('post-review-form');
             const title = form.elements['book-title'].value;
+            const fullReview = form.elements['full-review'].value;
             
-            if (!title || currentReviewStars === 0 || !form.elements['full-review'].value) {
+            if (!title || currentReviewStars === 0 || !fullReview) {
                 window.showMessage("Please fill out required fields and select a star rating.", true);
                 return;
             }
-            
-            if (isEditing) {
-                // Mock Edit logic
-                const index = MOCK_USER_REVIEWS.findIndex(r => r.id === currentEditReviewId);
-                if (index !== -1) {
-                    MOCK_USER_REVIEWS[index].title = title;
-                    MOCK_USER_REVIEWS[index].stars = currentReviewStars;
-                    MOCK_USER_REVIEWS[index].author = form.elements['author'].value;
-                    MOCK_USER_REVIEWS[index].fullReview = form.elements['full-review'].value;
-                }
-                window.showMessage(`Review for "${title}" updated successfully!`);
 
-            } else {
-                // Mock Post logic
-                const newReview = { 
-                    id: Date.now(), 
-                    title: title, 
-                    author: form.elements['author'].value,
-                    stars: currentReviewStars, 
-                    snippet: form.elements['full-review'].value.substring(0, 50) + '...',
-                    fullReview: form.elements['full-review'].value,
-                    imageBg: "bg-yellow-800/40", // Default new review color
-                    date: new Date().toISOString().slice(0, 10),
-                };
-                MOCK_USER_REVIEWS.unshift(newReview);
-                MOCK_USER.totalReviews++;
-                window.showMessage(`Review for "${title}" posted successfully!`);
+            const payload = {
+                title: title,
+                author: form.elements['author'].value,
+                stars: currentReviewStars,
+                fullReview: fullReview,
+                publisher: form.elements['publisher'].value,
+                publicationDate: form.elements['publish-date'].value,
+                reviewerId: currentUserId
+            };
+
+            const action = isEditing ? 'edit_review' : 'post_review';
+            if (isEditing) {
+                payload.reviewId = currentEditReviewId;
             }
-            
-            window.hidePostReviewModal();
-            renderReviewsList(); // Re-render the list after post/edit
+
+            try {
+                const response = await fetch(`api.php?action=${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    window.showMessage(result.message);
+                    window.hidePostReviewModal();
+                    await fetchProfileData(); // Reload data to update the list
+
+                } else {
+                    window.showMessage(`Action failed: ${result.message}`, true);
+                }
+            } catch (error) {
+                 console.error(`${action} error:`, error);
+                 window.showMessage("Failed to connect to the server for review action.", true);
+            }
         };
 
-        // --- REVIEW VIEW/EDIT/DELETE ACTIONS (Point 3) ---
 
-        window.handleReviewAction = (id, action) => {
-            const review = MOCK_USER_REVIEWS.find(r => r.id === id);
+        // --- REVIEW VIEW/EDIT/DELETE ACTIONS (Point 3 - UPDATED DELETE) ---
+
+        window.handleReviewAction = async (id, action) => {
+            const review = userReviews.find(r => r.id == id);
             if (!review) return;
 
             if (action === 'view') {
-                // Mock View functionality by showing a simple view modal (similar to index.html's showModal)
+                // Mock View functionality by showing a simple view modal 
                 const modal = document.getElementById('simple-view-modal');
                 modal.querySelector('#view-title').textContent = review.title;
                 modal.querySelector('#view-author').textContent = 'by ' + review.author;
@@ -222,34 +247,42 @@
 
             } else if (action === 'delete') {
                 if (confirm(`Are you sure you want to delete the review for "${review.title}"?`)) {
-                    const index = MOCK_USER_REVIEWS.findIndex(r => r.id === id);
-                    if (index !== -1) {
-                        MOCK_USER_REVIEWS.splice(index, 1);
-                        MOCK_USER.totalReviews--;
-                        renderProfile(); // Re-render everything
-                        window.showMessage(`Review for "${review.title}" deleted.`);
+                    // ** NEW DELETE API CALL **
+                    try {
+                        const response = await fetch('api.php?action=delete_review', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ reviewId: id, userId: currentUserId })
+                        });
+                        
+                        const result = await response.json();
+
+                        if (response.ok && result.success) {
+                            window.showMessage(result.message);
+                            await fetchProfileData(); // Reload data to update the list
+                        } else {
+                            window.showMessage(`Delete failed: ${result.message}`, true);
+                        }
+                    } catch (error) {
+                        console.error("Delete review error:", error);
+                        window.showMessage("Failed to connect to server for delete action.", true);
                     }
                 }
             }
         };
-        
-        // Utility for index.html-style modal (replicated for self-containment)
-        const getStarsHtml = (count) => {
-            const fullStar = '<span class="text-amber-500">★</span>';
-            const emptyStar = '<span class="text-gray-300">★</span>';
-            return fullStar.repeat(count) + emptyStar.repeat(5 - count);
-        };
 
-        // --- RENDER FUNCTIONS ---
+
+        // --- RENDER FUNCTIONS (MODIFIED TO USE profileData and userReviews) ---
         
         window.renderProfile = () => {
             // Render basic profile info
-            document.getElementById('profile-name').textContent = MOCK_USER.name;
-            document.getElementById('profile-username').textContent = `@${MOCK_USER.username}`;
-            document.getElementById('profile-email').textContent = MOCK_USER.email;
-            document.getElementById('profile-reviews').textContent = `${MOCK_USER.totalReviews} Reviews`;
-            document.getElementById('profile-since').textContent = `Member since ${MOCK_USER.memberSince}`;
-            document.getElementById('profile-pfp').src = MOCK_USER.pfp;
+            document.getElementById('profile-name').textContent = profileData.fullname || 'Loading...';
+            document.getElementById('profile-username').textContent = `@${profileData.username}`;
+            document.getElementById('profile-email').textContent = profileData.email;
+            document.getElementById('profile-reviews').textContent = `${profileData.totalReviews} Reviews`;
+            document.getElementById('profile-since').textContent = `Member since ${profileData.member_since}`;
+            // PFP remains a placeholder for now
+            document.getElementById('profile-pfp').src = 'https://placehold.co/80x80/fcd34d/6e4d0d?text=' + (profileData.username ? profileData.username.charAt(0).toUpperCase() : 'JS'); 
             
             renderReviewsList();
         };
@@ -258,12 +291,12 @@
             const container = document.getElementById('user-reviews-list');
             if (!container) return;
 
-            if (MOCK_USER_REVIEWS.length === 0) {
+            if (userReviews.length === 0) {
                 container.innerHTML = `<p class="text-center text-stone-500 p-8">You haven't posted any reviews yet.</p>`;
                 return;
             }
 
-            container.innerHTML = MOCK_USER_REVIEWS.map(review => `
+            container.innerHTML = userReviews.map(review => `
                 <div class="p-4 bg-white rounded-xl cozy-shadow border border-stone-200 flex flex-col justify-between">
                     <div>
                         <h4 class="text-lg font-bold text-stone-800 leading-tight">${review.title}</h4>
@@ -272,13 +305,13 @@
                         <p class="text-base text-stone-600 line-clamp-3 mb-4">${review.snippet}</p>
                     </div>
                     <div class="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
-                        <button class="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors" onclick="handleReviewAction(${review.id}, 'view')">
+                        <button class="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors" onclick="handleReviewAction('${review.id}', 'view')">
                             View More
                         </button>
-                        <button class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors" onclick="handleReviewAction(${review.id}, 'edit')">
+                        <button class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors" onclick="handleReviewAction('${review.id}', 'edit')">
                             Edit
                         </button>
-                        <button class="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors" onclick="handleReviewAction(${review.id}, 'delete')">
+                        <button class="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors" onclick="handleReviewAction('${review.id}', 'delete')">
                             Delete
                         </button>
                     </div>
@@ -286,7 +319,7 @@
             `).join('');
         };
         
-        document.addEventListener('DOMContentLoaded', window.renderProfile);
+        document.addEventListener('DOMContentLoaded', window.fetchProfileData);
     </script>
 </head>
 <body>
