@@ -214,7 +214,8 @@ else if ($action == 'get_user_data') {
 
         // Pass false to fetchUserReviews for the regular user profile structure
         $user_reviews = fetchUserReviews($conn, $userId, false); 
-        $user['member_since'] = "Nov 2024";
+        // NOTE: Member since is hardcoded for now, assuming the database doesn't track signup date.
+        $user['member_since'] = "Nov 2024"; 
 
         echo json_encode(["success" => true, "user" => $user, "total_reviews" => (int)$total_reviews, "reviews" => $user_reviews]);
 
@@ -322,7 +323,6 @@ else if ($action == 'get_all_users') {
             $count_result = $conn->query($count_sql);
             $total_reviews = $count_result->fetch_assoc()['total_reviews'];
             
-            // NOTE: The status is mocked here but the new feature is 'Delete Account' only.
             $status = ($row['role'] === 'suspended') ? 'Suspended' : 'Active';
 
             $users[] = [
@@ -346,12 +346,11 @@ else if ($action == 'get_user_reviews_admin') {
         return;
     }
     
-    // Pass true to fetchUserReviews to get the Admin dashboard structure (book/snippet/fullReview)
     $reviews = fetchUserReviews($conn, $userId, true); 
     echo json_encode(["success" => true, "reviews" => $reviews]);
 }
 
-// --- ACTION: 11. ADMIN DELETE ANY REVIEW (NEW) ---
+// --- ACTION: 11. ADMIN DELETE ANY REVIEW ---
 else if ($action == 'admin_delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $reviewId = $conn->real_escape_string($data['reviewId'] ?? '');
@@ -362,7 +361,6 @@ else if ($action == 'admin_delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST
         return;
     }
 
-    // Admin can delete any review
     $sql = "DELETE FROM review WHERE id = '$reviewId'";
 
     if ($conn->query($sql) === TRUE) {
@@ -378,7 +376,7 @@ else if ($action == 'admin_delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST
     }
 }
 
-// --- ACTION: 12. ADMIN DELETE USER (REPLACED TOGGLE STATUS) ---
+// --- ACTION: 12. ADMIN DELETE USER ---
 else if ($action == 'admin_delete_user' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $userId = $conn->real_escape_string($data['userId'] ?? '');
@@ -389,8 +387,6 @@ else if ($action == 'admin_delete_user' && $_SERVER['REQUEST_METHOD'] == 'POST')
         return;
     }
     
-    // Deleting the user from the 'akun' table. 
-    // The ON DELETE CASCADE constraint on the 'review' table handles deletion of reviews.
     $sql = "DELETE FROM akun WHERE id = '$userId'";
     
     if ($conn->query($sql) === TRUE) {
@@ -403,6 +399,81 @@ else if ($action == 'admin_delete_user' && $_SERVER['REQUEST_METHOD'] == 'POST')
     } else {
         http_response_code(500);
         echo json_encode(["success" => false, "message" => "Database error: " . $conn->error]);
+    }
+}
+
+// --- ACTION: 13. USER PROFILE UPDATE (NEW) ---
+else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    $userId = $conn->real_escape_string($data['userId'] ?? '');
+    $fullname = $conn->real_escape_string($data['fullname'] ?? '');
+    $username = $conn->real_escape_string($data['username'] ?? '');
+    $oldPassword = $data['oldPassword'] ?? null;
+    $newPassword = $data['newPassword'] ?? null;
+
+    if (empty($userId) || empty($fullname) || empty($username)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "User ID, Full Name, and Username are required."]);
+        return;
+    }
+
+    // 1. Start building the update query
+    $updateFields = [];
+    $updateFields[] = "fullname = '$fullname'";
+    $updateFields[] = "username = '$username'";
+    
+    // 2. Handle password change
+    if (!empty($newPassword)) {
+        if (empty($oldPassword)) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "Current password is required to set a new password."]);
+            return;
+        }
+
+        // Fetch current password (NOTE: Assuming plain text password for comparison as per existing login logic)
+        $passwordCheckSql = "SELECT password FROM akun WHERE id = '$userId'";
+        $result = $conn->query($passwordCheckSql);
+        
+        if ($result->num_rows === 0) {
+            http_response_code(404);
+            echo json_encode(["success" => false, "message" => "User not found."]);
+            return;
+        }
+
+        $user = $result->fetch_assoc();
+        
+        // Simple plain-text password comparison
+        if ($user['password'] !== $oldPassword) {
+            http_response_code(401);
+            echo json_encode(["success" => false, "message" => "Incorrect current password."]);
+            return;
+        }
+
+        // Add new password to update fields (Note: If using real hashing like password_hash, that implementation would go here)
+        $newPassword = $conn->real_escape_string($newPassword);
+        $updateFields[] = "password = '$newPassword'";
+    }
+
+    // 3. Construct and execute the final update query
+    $sql = "UPDATE akun SET " . implode(', ', $updateFields) . " WHERE id = '$userId'";
+
+    if ($conn->query($sql) === TRUE) {
+        if ($conn->affected_rows > 0 || (empty($newPassword) && count($updateFields) > 0)) {
+            echo json_encode(["success" => true, "message" => "Profile updated successfully."]);
+        } else {
+             // This might happen if they submit the form but change nothing
+            echo json_encode(["success" => true, "message" => "Profile saved, but no changes detected."]);
+        }
+    } else {
+        // Check for duplicate username error (mocked error code based on common MySQL behavior)
+        if ($conn->errno === 1062) { 
+            http_response_code(409);
+            echo json_encode(["success" => false, "message" => "Username is already taken."]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => "Database error: " . $conn->error]);
+        }
     }
 }
 

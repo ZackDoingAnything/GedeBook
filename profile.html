@@ -77,7 +77,7 @@
         };
 
 
-        // --- DATA FETCHING (NEW) ---
+        // --- DATA FETCHING ---
 
         window.fetchProfileData = async () => {
              if (!currentUserId) return;
@@ -105,29 +105,89 @@
         };
 
 
-        // --- PROFILE EDIT MODAL (Point 1) ---
-        // NOTE: The PHP endpoints for profile update (username/password) are NOT yet built.
-        // This function remains mock for now, but uses the fetched data.
+        // --- PROFILE EDIT MODAL ---
 
         window.showEditProfileModal = () => {
+            if (!profileData || !profileData.username) {
+                window.showMessage("Error: Profile data not loaded yet.", true);
+                return;
+            }
+            
+            // Populate form fields with current data
+            document.getElementById('edit-fullname').value = profileData.fullname || '';
             document.getElementById('edit-username').value = profileData.username;
-            document.getElementById('edit-email-readonly').value = profileData.email; // Assuming read-only input has this ID
+            document.getElementById('edit-email-readonly').value = profileData.email; 
             document.getElementById('edit-profile-modal').classList.remove('hidden');
         };
 
         window.hideEditProfileModal = () => {
+            // Reset password fields upon close for security
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password').value = '';
             document.getElementById('edit-profile-modal').classList.add('hidden');
         };
 
-        window.handleEditProfile = () => {
+        // --- UPDATED: PROFILE UPDATE HANDLER ---
+        window.handleEditProfile = async () => {
             event.preventDefault();
-            // This is currently MOCK logic (no API call implemented yet)
-            window.showMessage("Profile Update Functionality is under construction!", true);
-            hideEditProfileModal();
+            
+            const fullname = document.getElementById('edit-fullname').value;
+            const username = document.getElementById('edit-username').value;
+            const oldPassword = document.getElementById('old-password').value;
+            const newPassword = document.getElementById('new-password').value;
+
+            if (!fullname || !username) {
+                window.showMessage("Full Name and Username are required.", true);
+                return;
+            }
+
+            // If new password is provided, current password must also be provided
+            if (newPassword && !oldPassword) {
+                 window.showMessage("You must enter your current password to set a new password.", true);
+                 return;
+            }
+
+            const payload = {
+                userId: currentUserId,
+                fullname: fullname,
+                username: username,
+                // Only send password fields if they were entered
+                oldPassword: oldPassword || null,
+                newPassword: newPassword || null
+            };
+            
+            try {
+                const response = await fetch('api.php?action=update_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    window.showMessage(result.message);
+                    
+                    // Clear password fields on successful update
+                    document.getElementById('old-password').value = '';
+                    document.getElementById('new-password').value = '';
+
+                    await fetchProfileData(); // Reload data to update the UI
+                    hideEditProfileModal();
+
+                } else {
+                    window.showMessage(result.message || "Profile update failed.", true);
+                }
+
+            } catch (error) {
+                console.error("Profile update error:", error);
+                window.showMessage("Failed to connect to the server for profile update.", true);
+            }
         };
+        // --- END UPDATED LOGIC ---
 
 
-        // --- REVIEW POSTING/EDITING MODAL (Point 2 - Reused Logic) ---
+        // --- REVIEW POSTING/EDITING MODAL (Reused Logic) ---
         let currentReviewStars = 0;
         let isEditing = false;
         let currentEditReviewId = null;
@@ -157,8 +217,8 @@
                 form.elements['book-title'].value = reviewToEdit.title;
                 form.elements['author'].value = reviewToEdit.author;
                 form.elements['full-review'].value = reviewToEdit.fullReview;
-                form.elements['publisher'].value = reviewToEdit.publisher; // Populate publisher
-                form.elements['publish-date'].value = reviewToEdit.publicationDate; // Populate date
+                form.elements['publisher'].value = reviewToEdit.publisher; 
+                form.elements['publish-date'].value = reviewToEdit.publicationDate; 
                 updateStarRating(reviewToEdit.stars);
                 document.getElementById('post-submit-button').innerText = "Save Changes";
 
@@ -226,20 +286,28 @@
         };
 
 
-        // --- REVIEW VIEW/EDIT/DELETE ACTIONS (Point 3 - UPDATED DELETE) ---
+        // --- REVIEW VIEW/EDIT/DELETE ACTIONS ---
 
         window.handleReviewAction = async (id, action) => {
             const review = userReviews.find(r => r.id == id);
             if (!review) return;
 
             if (action === 'view') {
-                // Mock View functionality by showing a simple view modal 
+                // Populate and show the simple view modal 
                 const modal = document.getElementById('simple-view-modal');
                 modal.querySelector('#view-title').textContent = review.title;
                 modal.querySelector('#view-author').textContent = 'by ' + review.author;
                 modal.querySelector('#view-stars').innerHTML = getStarsHtml(review.stars);
                 modal.querySelector('#view-full-review').textContent = review.fullReview;
+                
+                // Add class to show the modal container for the transition effect
+                const modalContainer = modal.querySelector('div');
                 modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modalContainer.classList.remove('scale-95', 'opacity-0');
+                    modalContainer.classList.add('scale-100', 'opacity-100');
+                }, 10); 
+                document.body.classList.add('overflow-hidden');
 
             } else if (action === 'edit') {
                 // Open post modal pre-filled
@@ -247,7 +315,7 @@
 
             } else if (action === 'delete') {
                 if (confirm(`Are you sure you want to delete the review for "${review.title}"?`)) {
-                    // ** NEW DELETE API CALL **
+                    // ** DELETE API CALL **
                     try {
                         const response = await fetch('api.php?action=delete_review', {
                             method: 'POST',
@@ -271,12 +339,27 @@
             }
         };
 
+        window.hideSimpleViewModal = () => {
+            const modal = document.getElementById('simple-view-modal');
+            const modalContainer = modal.querySelector('div');
 
-        // --- RENDER FUNCTIONS (MODIFIED TO USE profileData and userReviews) ---
+            // Start exit animation
+            modalContainer.classList.remove('scale-100', 'opacity-100');
+            modalContainer.classList.add('scale-95', 'opacity-0');
+            
+            // Wait for the transition to finish before hiding the container
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }, 300); 
+        };
+
+
+        // --- RENDER FUNCTIONS ---
         
         window.renderProfile = () => {
             // Render basic profile info
-            document.getElementById('profile-name').textContent = profileData.fullname || 'Loading...';
+            document.getElementById('profile-name').textContent = profileData.fullname || 'Your Name';
             document.getElementById('profile-username').textContent = `@${profileData.username}`;
             document.getElementById('profile-email').textContent = profileData.email;
             document.getElementById('profile-reviews').textContent = `${profileData.totalReviews} Reviews`;
@@ -402,27 +485,32 @@
     <div id="edit-profile-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'edit-profile-modal') hideEditProfileModal()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
             <!-- Modal Header -->
-            <div class="p-6 border-b border-stone-100">
+            <div class="p-6 border-b border-stone-100 flex items-start justify-between">
                 <h3 class="text-2xl font-bold text-amber-800">Edit Profile Details</h3>
+                <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hideEditProfileModal()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
             </div>
             
             <!-- Modal Body: Scrollable Form -->
             <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
                 <form onsubmit="handleEditProfile(); return false;" class="space-y-4">
                     
-                    <!-- PFP Upload -->
+                    <!-- PFP Upload (Mocked placeholder) -->
                     <div class="flex items-center space-x-4 pb-2 border-b border-stone-100">
-                        <img src="${MOCK_USER.pfp}" alt="Current PFP" class="w-16 h-16 rounded-full object-cover shadow-inner">
+                        <img id="edit-pfp-preview" src="https://placehold.co/64x64/fcd34d/6e4d0d?text=PFP" alt="Current PFP" class="w-16 h-16 rounded-full object-cover shadow-inner">
                         <div class="flex-grow">
                             <label class="block text-sm font-medium text-stone-700 mb-1">Update Profile Picture (Drop or Select)</label>
                             <input type="file" name="pfp-upload" accept="image/*" class="w-full text-stone-700 text-sm file:py-1 file:px-3 file:rounded-full file:border file:border-stone-300 file:text-sm file:font-semibold file:bg-white hover:file:bg-stone-50">
                         </div>
                     </div>
                     
-                    <!-- Email (Read-Only) -->
+                    <!-- Full Name -->
                     <div>
-                        <label class="block text-sm font-medium text-stone-700 mb-1">Email (Cannot be changed)</label>
-                        <input type="email" value="${MOCK_USER.email}" disabled class="w-full p-3 bg-stone-100 border border-stone-300 rounded-lg text-stone-600 cursor-not-allowed">
+                        <label for="edit-fullname" class="block text-sm font-medium text-stone-700 mb-1">Full Name</label>
+                        <input type="text" id="edit-fullname" required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <!-- Username -->
@@ -431,9 +519,15 @@
                         <input type="text" id="edit-username" required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
+                    <!-- Email (Read-Only) -->
+                    <div>
+                        <label class="block text-sm font-medium text-stone-700 mb-1">Email (Cannot be changed)</label>
+                        <input type="email" id="edit-email-readonly" disabled class="w-full p-3 bg-stone-100 border border-stone-300 rounded-lg text-stone-600 cursor-not-allowed">
+                    </div>
+
                     <!-- Password Update -->
                     <div class="pt-4 border-t border-stone-100 space-y-4">
-                         <h4 class="font-semibold text-stone-700">Change Password</h4>
+                         <h4 class="font-semibold text-stone-700">Change Password (Optional)</h4>
                         <div>
                             <label for="old-password" class="block text-sm font-medium text-stone-700 mb-1">Current Password (Required to change)</label>
                             <input type="password" id="old-password" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
@@ -446,7 +540,7 @@
 
                     <!-- Buttons -->
                     <div class="pt-6 flex justify-between">
-                        <button type="button" onclick="hideEditProfileModal()" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors cozy-shadow">
+                        <button type="button" onclick="hideEditProfileModal()" class="bg-stone-300 text-stone-700 px-4 py-2 rounded-lg font-semibold hover:bg-stone-400 transition-colors cozy-shadow">
                             Cancel
                         </button>
                         <button type="submit" class="bg-amber-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-amber-700 transition-colors cozy-shadow">
@@ -522,13 +616,13 @@
     </div>
 
     <!-- Modal 3: Simple View Modal (for View More action in post list) -->
-    <div id="simple-view-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'simple-view-modal') this.classList.add('hidden')">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow p-6">
+    <div id="simple-view-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'simple-view-modal') hideSimpleViewModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow p-6 transform transition-all duration-300 scale-95 opacity-0">
             <h3 id="view-title" class="text-3xl font-bold text-stone-800 mb-1"></h3>
             <p id="view-author" class="text-lg text-stone-500 italic mb-3"></p>
             <div id="view-stars" class="text-xl mb-4 pb-4 border-b border-stone-100"></div>
             <p id="view-full-review" class="text-lg text-stone-600 whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto custom-scroll"></p>
-            <button onclick="document.getElementById('simple-view-modal').classList.add('hidden')" class="mt-6 w-full bg-stone-300 text-stone-700 p-3 rounded-lg font-semibold hover:bg-stone-400">Close</button>
+            <button onclick="hideSimpleViewModal()" class="mt-6 w-full bg-stone-300 text-stone-700 p-3 rounded-lg font-semibold hover:bg-stone-400">Close</button>
         </div>
     </div>
 
