@@ -21,47 +21,83 @@
     </style>
     <script>
         const ADMIN_EMAIL = 'admin@gede.book';
-        const ADMIN_PASSWORD = 'gebukinadmin'; // Updated admin password
+        const ADMIN_PASSWORD = 'gebukinadmin'; // Used only for client-side comparison fallback if needed, but handled by API now
         
-        // Function to handle standard user login (checks for admin credentials if entered manually)
-        window.handleLogin = () => {
+        // Helper function to store user session data
+        const saveUserSession = (user) => {
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userId', user.id);
+            localStorage.setItem('userName', user.username);
+            
+            // Check for admin role
+            if (user.role === 'admin') {
+                localStorage.setItem('isAdmin', 'true');
+            } else {
+                localStorage.removeItem('isAdmin');
+            }
+            window.location.href = 'index.html';
+        };
+
+        // Function to handle standard user login
+        window.handleLogin = async () => {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
-            // Check for manual admin entry
-            if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('isAdmin', 'true');
-                window.location.href = 'index.html';
+            if (!email || !password) {
+                alert("Please enter both email and password.");
                 return;
             }
             
-            // Simulate general user login (any non-empty input for now)
-            if (email && password) {
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.removeItem('isAdmin'); // Ensure admin flag is clean
-                window.location.href = 'index.html'; 
-            } else {
-                // Note: Using alert here as a fallback for missing form data
-                alert("Please enter both email and password.");
+            try {
+                const response = await fetch('api.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    saveUserSession(result.user);
+                } else {
+                    alert(result.message || "Login failed. Check server status.");
+                }
+
+            } catch (error) {
+                console.error("Login API error:", error);
+                alert("Could not connect to the server. Check XAMPP and api.php.");
             }
         };
 
-        // NEW function for quick admin access via prompt
-        window.handleAdminPromptLogin = () => {
-            // Display a prompt box for the password
+        // NEW function for quick admin access via prompt (still uses the API)
+        window.handleAdminPromptLogin = async () => {
             const passwordAttempt = prompt("Enter Admin Password:");
             
-            if (passwordAttempt === ADMIN_PASSWORD) {
-                // Successful admin login
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('isAdmin', 'true');
-                window.location.href = 'index.html';
-            } else if (passwordAttempt !== null) {
-                // Show an alert if password is provided but incorrect
-                alert("Incorrect password.");
+            if (passwordAttempt === null || passwordAttempt === "") return;
+            
+            try {
+                // Use the hardcoded admin credentials for this prompt path
+                const response = await fetch('api.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: ADMIN_EMAIL, 
+                        password: passwordAttempt 
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    saveUserSession(result.user);
+                } else {
+                    alert(result.message || "Incorrect password.");
+                }
+
+            } catch (error) {
+                console.error("Admin Login API error:", error);
+                alert("Could not connect to the server.");
             }
-            // If passwordAttempt is null (user clicked cancel), nothing happens.
         };
     </script>
 </head>
