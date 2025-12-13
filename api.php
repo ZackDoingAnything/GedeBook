@@ -115,7 +115,17 @@ else if ($action == 'login' && $_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if ($result && $result->num_rows == 1) {
         $user = $result->fetch_assoc();
-        echo json_encode(["success" => true, "user" => $user]);
+        $hashed_password_from_db = $user['password'];
+        
+        if (password_verify($password, $hashed_password_from_db)) {
+            // Hapus password hash dari array sebelum dikirim ke client
+            unset($user['password']); 
+            echo json_encode(["success" => true, "user" => $user]);
+        } else {
+            // Password salah
+            http_response_code(401);
+            echo json_encode(["success" => false, "message" => "Invalid email or password."]);
+        }
     } else {
         http_response_code(401);
         echo json_encode(["success" => false, "message" => "Invalid email or password."]);
@@ -139,8 +149,10 @@ else if ($action == 'signup' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         return;
     }
 
+    $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+
     $new_id = generateNextId($conn, 'akun'); 
-    $insert_sql = "INSERT INTO akun (id, username, password, fullname, email, role, gambar) VALUES ('$new_id', '$username', '$password', '$fullname', '$email', 'anggota', '-')";
+    $insert_sql = "INSERT INTO akun (id, username, password, fullname, email, role, gambar) VALUES ('$new_id', '$username', '$hashed_password', '$fullname', '$email', 'anggota', '-')";
 
     if ($conn->query($insert_sql) === TRUE) {
         echo json_encode(["success" => true, "message" => "Account created successfully. Please log in."]);
@@ -444,15 +456,15 @@ else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         $user = $result->fetch_assoc();
         
         // Simple plain-text password comparison
-        if ($user['password'] !== $oldPassword) {
+        if (!password_verify($oldPassword, $user['password'])) {
             http_response_code(401);
             echo json_encode(["success" => false, "message" => "Incorrect current password."]);
             return;
         }
 
         // Add new password to update fields (Note: If using real hashing like password_hash, that implementation would go here)
-        $newPassword = $conn->real_escape_string($newPassword);
-        $updateFields[] = "password = '$newPassword'";
+        $hashedNewPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+        $updateFields[] = "password = '$hashedNewPassword'";
     }
 
     // 3. Construct and execute the final update query
@@ -484,4 +496,5 @@ else {
 }
 
 $conn->close();
+
 ?>
