@@ -32,11 +32,11 @@ Sistem ini dirancang untuk mendukung fungsionalitas utama berikut:
 
 Proyek ini menggunakan tumpukan teknologi berikut:
 
-| Kategori   | Teknologi                     | Persentase Kode |
-|-----------|-------------------------------|-----------------|
-| Frontend  | HTML, CSS, JavaScript          | 79.5%           |
-| Backend   | PHP                            | 20.5%           |
-| Database  | MySQL (melalui file `.sql`)    | -               |
+| Kategori   | Teknologi                     |
+|-----------|-------------------------------|
+| Frontend  | HTML, CSS, JavaScript          |
+| Backend   | PHP                            |
+| Database  | MySQL (melalui file `.sql`)    |
 
 ---
 
