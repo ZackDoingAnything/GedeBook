@@ -41,11 +41,11 @@ Sistem ini dirancang untuk mendukung fungsionalitas utama berikut:
 Untuk menjalankan proyek ini secara lokal, diperlukan web server yang mendukung **PHP** dan **MySQL**, seperti **XAMPP**, **Laragon**, atau **WAMP**.
 
 ### Langkah 1: Kloning Repositori
-`https://github.com/ZackDoingAnything/GedeBook.git cd GedeBook`
+`https://github.com/ZackDoingAnything/GedeBook.git`
 ### Langkah 2: Pengaturan Database
 
 1.  Buat database baru di MySQL.
-    > Contoh nama database: `gedebook`.
+    > Nama database: `sistem_review_buku_e_8`.
 2.  Impor skema database menggunakan file:
     `sistem_review_buku_e_8.sql`
 
