@@ -6,407 +6,10 @@
     <title>GedeBook - My Profile</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f3f0;
-            min-height: 100vh;
-        }
-        .cozy-shadow {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .custom-scroll {
-            overflow-y: auto;
-            max-height: 400px;
-            padding-right: 0.5rem;
-        }
-        .custom-scroll::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background-color: #d6d3d1; /* stone-300 */
-            border-radius: 10px;
-        }
-        .custom-scroll::-webkit-scrollbar-track {
-            background: transparent;
-        }
-    </style>
-    <script>
-        // --- AUTH/STATE CHECK ---
-        const isLoggedIn = () => localStorage.getItem('isLoggedIn') === 'true';
-        const isAdmin = () => isLoggedIn() && localStorage.getItem('isAdmin') === 'true';
-        const currentUserId = localStorage.getItem('userId');
-
-        if (!isLoggedIn() || isAdmin()) {
-            window.location.href = 'index.html'; 
-        }
-        
-        // --- GLOBAL DATA STORE ---
-        let profileData = {};
-        let userReviews = [];
-
-
-        // --- GLOBAL UI FUNCTIONS ---
-        
-        window.handleLogout = () => {
-            localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('isAdmin');
-            localStorage.removeItem('userId');
-            localStorage.removeItem('userName');
-            window.location.href = 'index.html'; 
-        };
-
-        window.showMessage = (message, isError = false) => {
-            const msgBox = document.getElementById('message-box');
-            msgBox.textContent = message;
-            msgBox.className = isError 
-                ? 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-red-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300'
-                : 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300';
-            msgBox.classList.remove('opacity-0', 'hidden');
-            setTimeout(() => {
-                msgBox.classList.add('opacity-0');
-                setTimeout(() => msgBox.classList.add('hidden'), 300);
-            }, 3000);
-        };
-        
-        // Utility for index.html-style modal
-        const getStarsHtml = (count) => {
-            const fullStar = '<span class="text-amber-500">★</span>';
-            const emptyStar = '<span class="text-gray-300">★</span>';
-            return fullStar.repeat(count) + emptyStar.repeat(5 - count);
-        };
-
-
-        // --- DATA FETCHING ---
-
-        window.fetchProfileData = async () => {
-             if (!currentUserId) return;
-
-             try {
-                const response = await fetch(`api.php?action=get_user_data&user_id=${currentUserId}`);
-                
-                if (!response.ok) throw new Error('Failed to fetch user data.');
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    profileData = result.user;
-                    profileData.totalReviews = result.total_reviews;
-                    userReviews = result.reviews;
-                    renderProfile();
-                } else {
-                    window.showMessage(result.message, true);
-                }
-
-             } catch (error) {
-                console.error("Profile data fetch failed:", error);
-                window.showMessage("Failed to load profile. Check API connection.", true);
-             }
-        };
-
-
-        // --- PROFILE EDIT MODAL ---
-
-        window.showEditProfileModal = () => {
-            if (!profileData || !profileData.username) {
-                window.showMessage("Error: Profile data not loaded yet.", true);
-                return;
-            }
-            
-            // Populate form fields with current data
-            document.getElementById('edit-fullname').value = profileData.fullname || '';
-            document.getElementById('edit-username').value = profileData.username;
-            document.getElementById('edit-email-readonly').value = profileData.email; 
-            document.getElementById('edit-profile-modal').classList.remove('hidden');
-        };
-
-        window.hideEditProfileModal = () => {
-            // Reset password fields upon close for security
-            document.getElementById('old-password').value = '';
-            document.getElementById('new-password').value = '';
-            document.getElementById('edit-profile-modal').classList.add('hidden');
-        };
-
-        // --- UPDATED: PROFILE UPDATE HANDLER ---
-        window.handleEditProfile = async () => {
-            event.preventDefault();
-            
-            const fullname = document.getElementById('edit-fullname').value;
-            const username = document.getElementById('edit-username').value;
-            const oldPassword = document.getElementById('old-password').value;
-            const newPassword = document.getElementById('new-password').value;
-
-            if (!fullname || !username) {
-                window.showMessage("Full Name and Username are required.", true);
-                return;
-            }
-
-            // If new password is provided, current password must also be provided
-            if (newPassword && !oldPassword) {
-                 window.showMessage("You must enter your current password to set a new password.", true);
-                 return;
-            }
-
-            const payload = {
-                userId: currentUserId,
-                fullname: fullname,
-                username: username,
-                // Only send password fields if they were entered
-                oldPassword: oldPassword || null,
-                newPassword: newPassword || null
-            };
-            
-            try {
-                const response = await fetch('api.php?action=update_profile', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    window.showMessage(result.message);
-                    
-                    // Clear password fields on successful update
-                    document.getElementById('old-password').value = '';
-                    document.getElementById('new-password').value = '';
-
-                    await fetchProfileData(); // Reload data to update the UI
-                    hideEditProfileModal();
-
-                } else {
-                    window.showMessage(result.message || "Profile update failed.", true);
-                }
-
-            } catch (error) {
-                console.error("Profile update error:", error);
-                window.showMessage("Failed to connect to the server for profile update.", true);
-            }
-        };
-        // --- END UPDATED LOGIC ---
-
-
-        // --- REVIEW POSTING/EDITING MODAL (Reused Logic) ---
-        let currentReviewStars = 0;
-        let isEditing = false;
-        let currentEditReviewId = null;
-
-        window.updateStarRating = (rating) => {
-            currentReviewStars = rating;
-            const starContainer = document.getElementById('star-selector-container');
-            starContainer.innerHTML = '';
-            for (let i = 1; i <= 5; i++) {
-                const star = document.createElement('span');
-                star.className = 'text-3xl cursor-pointer transition-colors';
-                star.style.color = i <= rating ? '#f59e0b' : '#d1d5db';
-                star.innerHTML = '★';
-                star.onclick = () => updateStarRating(i);
-                starContainer.appendChild(star);
-            }
-        };
-
-        window.showPostReviewModal = (reviewToEdit = null) => {
-            const form = document.getElementById('post-review-form');
-            form.reset();
-            
-            if (reviewToEdit) {
-                isEditing = true;
-                currentEditReviewId = reviewToEdit.id;
-                document.getElementById('post-modal-title').innerText = "Edit Review";
-                form.elements['book-title'].value = reviewToEdit.title;
-                form.elements['author'].value = reviewToEdit.author;
-                form.elements['full-review'].value = reviewToEdit.fullReview;
-                form.elements['publisher'].value = reviewToEdit.publisher; 
-                form.elements['publish-date'].value = reviewToEdit.publicationDate; 
-                updateStarRating(reviewToEdit.stars);
-                document.getElementById('post-submit-button').innerText = "Save Changes";
-
-            } else {
-                isEditing = false;
-                currentEditReviewId = null;
-                document.getElementById('post-modal-title').innerText = "Make a Review!";
-                updateStarRating(0);
-                document.getElementById('post-submit-button').innerText = "Post Review";
-            }
-            document.getElementById('post-review-modal').classList.remove('hidden');
-        };
-        
-        window.hidePostReviewModal = () => {
-            document.getElementById('post-review-modal').classList.add('hidden');
-        };
-
-        window.handlePostReview = async () => {
-            event.preventDefault();
-            const form = document.getElementById('post-review-form');
-            const title = form.elements['book-title'].value;
-            const fullReview = form.elements['full-review'].value;
-            
-            if (!title || currentReviewStars === 0 || !fullReview) {
-                window.showMessage("Please fill out required fields and select a star rating.", true);
-                return;
-            }
-
-            const payload = {
-                title: title,
-                author: form.elements['author'].value,
-                stars: currentReviewStars,
-                fullReview: fullReview,
-                publisher: form.elements['publisher'].value,
-                publicationDate: form.elements['publish-date'].value,
-                reviewerId: currentUserId
-            };
-
-            const action = isEditing ? 'edit_review' : 'post_review';
-            if (isEditing) {
-                payload.reviewId = currentEditReviewId;
-            }
-
-            try {
-                const response = await fetch(`api.php?action=${action}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    window.showMessage(result.message);
-                    window.hidePostReviewModal();
-                    await fetchProfileData(); // Reload data to update the list
-
-                } else {
-                    window.showMessage(`Action failed: ${result.message}`, true);
-                }
-            } catch (error) {
-                 console.error(`${action} error:`, error);
-                 window.showMessage("Failed to connect to the server for review action.", true);
-            }
-        };
-
-
-        // --- REVIEW VIEW/EDIT/DELETE ACTIONS ---
-
-        window.handleReviewAction = async (id, action) => {
-            const review = userReviews.find(r => r.id == id);
-            if (!review) return;
-
-            if (action === 'view') {
-                // Populate and show the simple view modal 
-                const modal = document.getElementById('simple-view-modal');
-                modal.querySelector('#view-title').textContent = review.title;
-                modal.querySelector('#view-author').textContent = 'by ' + review.author;
-                modal.querySelector('#view-stars').innerHTML = getStarsHtml(review.stars);
-                modal.querySelector('#view-full-review').textContent = review.fullReview;
-                
-                // Add class to show the modal container for the transition effect
-                const modalContainer = modal.querySelector('div');
-                modal.classList.remove('hidden');
-                setTimeout(() => {
-                    modalContainer.classList.remove('scale-95', 'opacity-0');
-                    modalContainer.classList.add('scale-100', 'opacity-100');
-                }, 10); 
-                document.body.classList.add('overflow-hidden');
-
-            } else if (action === 'edit') {
-                // Open post modal pre-filled
-                window.showPostReviewModal(review);
-
-            } else if (action === 'delete') {
-                if (confirm(`Are you sure you want to delete the review for "${review.title}"?`)) {
-                    // ** DELETE API CALL **
-                    try {
-                        const response = await fetch('api.php?action=delete_review', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ reviewId: id, userId: currentUserId })
-                        });
-                        
-                        const result = await response.json();
-
-                        if (response.ok && result.success) {
-                            window.showMessage(result.message);
-                            await fetchProfileData(); // Reload data to update the list
-                        } else {
-                            window.showMessage(`Delete failed: ${result.message}`, true);
-                        }
-                    } catch (error) {
-                        console.error("Delete review error:", error);
-                        window.showMessage("Failed to connect to server for delete action.", true);
-                    }
-                }
-            }
-        };
-
-        window.hideSimpleViewModal = () => {
-            const modal = document.getElementById('simple-view-modal');
-            const modalContainer = modal.querySelector('div');
-
-            // Start exit animation
-            modalContainer.classList.remove('scale-100', 'opacity-100');
-            modalContainer.classList.add('scale-95', 'opacity-0');
-            
-            // Wait for the transition to finish before hiding the container
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                document.body.classList.remove('overflow-hidden');
-            }, 300); 
-        };
-
-
-        // --- RENDER FUNCTIONS ---
-        
-        window.renderProfile = () => {
-            // Render basic profile info
-            document.getElementById('profile-name').textContent = profileData.fullname || 'Your Name';
-            document.getElementById('profile-username').textContent = `@${profileData.username}`;
-            document.getElementById('profile-email').textContent = profileData.email;
-            document.getElementById('profile-reviews').textContent = `${profileData.totalReviews} Reviews`;
-            document.getElementById('profile-since').textContent = `Member since ${profileData.member_since}`;
-            // PFP remains a placeholder for now
-            document.getElementById('profile-pfp').src = 'https://placehold.co/80x80/fcd34d/6e4d0d?text=' + (profileData.username ? profileData.username.charAt(0).toUpperCase() : 'JS'); 
-            
-            renderReviewsList();
-        };
-
-        window.renderReviewsList = () => {
-            const container = document.getElementById('user-reviews-list');
-            if (!container) return;
-
-            if (userReviews.length === 0) {
-                container.innerHTML = `<p class="text-center text-stone-500 p-8">You haven't posted any reviews yet.</p>`;
-                return;
-            }
-
-            container.innerHTML = userReviews.map(review => `
-                <div class="p-4 bg-white rounded-xl cozy-shadow border border-stone-200 flex flex-col justify-between">
-                    <div>
-                        <h4 class="text-lg font-bold text-stone-800 leading-tight">${review.title}</h4>
-                        <p class="text-sm text-stone-500 italic mb-2">by ${review.author}</p>
-                        <div class="mb-3 text-sm">${getStarsHtml(review.stars)}</div>
-                        <p class="text-base text-stone-600 line-clamp-3 mb-4">${review.snippet}</p>
-                    </div>
-                    <div class="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
-                        <button class="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors" onclick="handleReviewAction('${review.id}', 'view')">
-                            View More
-                        </button>
-                        <button class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors" onclick="handleReviewAction('${review.id}', 'edit')">
-                            Edit
-                        </button>
-                        <button class="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors" onclick="handleReviewAction('${review.id}', 'delete')">
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        };
-        
-        document.addEventListener('DOMContentLoaded', window.fetchProfileData);
-    </script>
+    <link rel="stylesheet" src="css/style.css" type="text/css" media="screen"></link>
+    <script type="text/javascript" src="js/profileScripts.js"></script>
 </head>
 <body>
-    <!-- Header / Navigation Bar -->
     <header class="bg-white/95 sticky top-0 z-20 cozy-shadow backdrop-blur-sm">
         <div class="max-w-4xl mx-auto p-4 flex justify-between items-center">
             <div class="flex items-center space-x-3">
@@ -426,17 +29,13 @@
         </div>
     </header>
 
-    <!-- Main Content Area -->
     <main class="max-w-4xl mx-auto py-8 px-4">
         
-        <!-- 1. Profile Section -->
         <section class="mb-8 p-6 bg-white rounded-xl cozy-shadow border border-stone-200 relative">
             
             <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
-                <!-- Profile Picture -->
                 <img id="profile-pfp" src="" alt="Profile Picture" class="w-20 h-20 rounded-full object-cover border-4 border-amber-200 shadow-md">
                 
-                <!-- User Details -->
                 <div class="text-center sm:text-left">
                     <h2 id="profile-name" class="text-2xl font-bold text-stone-800"></h2>
                     <p id="profile-username" class="text-amber-600 italic mb-2"></p>
@@ -447,7 +46,6 @@
                 </div>
             </div>
             
-            <!-- Edit Button -->
             <button 
                 onclick="showEditProfileModal()" 
                 class="absolute top-4 right-4 text-stone-500 hover:text-amber-700 transition-colors p-2 rounded-full hover:bg-stone-100"
@@ -457,7 +55,6 @@
             </button>
         </section>
 
-        <!-- 2. Make a Review Button -->
         <section class="mb-8 flex justify-center">
             <button 
                 onclick="showPostReviewModal()"
@@ -469,22 +66,17 @@
         </section>
 
 
-        <!-- 3. All Posts Selector -->
         <section class="mb-8 p-6 bg-stone-100/70 rounded-xl border border-stone-200">
             <h2 class="text-xl font-bold text-stone-800 mb-4">My Reviews</h2>
             <div id="user-reviews-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- User reviews injected by renderReviewsList() -->
             </div>
         </section>
 
-        <!-- Footer Spacer -->
         <div class="h-16"></div>
     </main>
 
-    <!-- Modal 1: Edit Profile Modal (Point 1) -->
     <div id="edit-profile-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'edit-profile-modal') hideEditProfileModal()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
-            <!-- Modal Header -->
             <div class="p-6 border-b border-stone-100 flex items-start justify-between">
                 <h3 class="text-2xl font-bold text-amber-800">Edit Profile Details</h3>
                 <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hideEditProfileModal()">
@@ -494,11 +86,9 @@
                 </button>
             </div>
             
-            <!-- Modal Body: Scrollable Form -->
             <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
                 <form onsubmit="handleEditProfile(); return false;" class="space-y-4">
                     
-                    <!-- PFP Upload (Mocked placeholder) -->
                     <div class="flex items-center space-x-4 pb-2 border-b border-stone-100">
                         <img id="edit-pfp-preview" src="https://placehold.co/64x64/fcd34d/6e4d0d?text=PFP" alt="Current PFP" class="w-16 h-16 rounded-full object-cover shadow-inner">
                         <div class="flex-grow">
@@ -507,25 +97,21 @@
                         </div>
                     </div>
                     
-                    <!-- Full Name -->
                     <div>
                         <label for="edit-fullname" class="block text-sm font-medium text-stone-700 mb-1">Full Name</label>
                         <input type="text" id="edit-fullname" required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
-                    <!-- Username -->
                     <div>
                         <label for="edit-username" class="block text-sm font-medium text-stone-700 mb-1">Username</label>
                         <input type="text" id="edit-username" required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
-                    <!-- Email (Read-Only) -->
                     <div>
                         <label class="block text-sm font-medium text-stone-700 mb-1">Email (Cannot be changed)</label>
                         <input type="email" id="edit-email-readonly" disabled class="w-full p-3 bg-stone-100 border border-stone-300 rounded-lg text-stone-600 cursor-not-allowed">
                     </div>
 
-                    <!-- Password Update -->
                     <div class="pt-4 border-t border-stone-100 space-y-4">
                          <h4 class="font-semibold text-stone-700">Change Password (Optional)</h4>
                         <div>
@@ -538,7 +124,6 @@
                         </div>
                     </div>
 
-                    <!-- Buttons -->
                     <div class="pt-6 flex justify-between">
                         <button type="button" onclick="hideEditProfileModal()" class="bg-stone-300 text-stone-700 px-4 py-2 rounded-lg font-semibold hover:bg-stone-400 transition-colors cozy-shadow">
                             Cancel
@@ -552,10 +137,8 @@
         </div>
     </div>
     
-    <!-- Modal 2: Post/Edit Review Modal (Point 2) -->
     <div id="post-review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'post-review-modal') hidePostReviewModal()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
-            <!-- Modal Header -->
             <div class="p-6 border-b border-stone-100 flex items-start justify-between">
                 <h3 id="post-modal-title" class="text-2xl font-bold text-amber-800">Make a Review!</h3>
                 <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hidePostReviewModal()">
@@ -565,43 +148,35 @@
                 </button>
             </div>
             
-            <!-- Modal Body: Scrollable Form -->
             <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
                 <form id="post-review-form" onsubmit="handlePostReview(); return false;" class="space-y-4">
                     
-                    <!-- Title, Author, Rating -->
                     <div class="grid grid-cols-2 gap-4">
                         <input type="text" name="book-title" placeholder="Book Title (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                         <input type="text" name="author" placeholder="Author (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
-                    <!-- Star Selector -->
                     <div>
                         <label class="block text-sm font-medium text-stone-700 mb-2">Your Rating (1-5 Stars)</label>
                         <div id="star-selector-container" class="flex space-x-2 text-3xl">
-                            <!-- Stars injected by updateStarRating() -->
                         </div>
                     </div>
                     
-                    <!-- Optional Metadata -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <input type="text" name="publisher" placeholder="Publisher (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                         <input type="text" name="publish-date" placeholder="Publication Date (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
-                    <!-- Book Image Upload -->
                     <div>
                         <label class="block text-sm font-medium text-stone-700 mb-2">Book Image (Optional)</label>
                         <input type="file" name="book-image" accept="image/*" class="w-full text-stone-700 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
                     </div>
 
-                    <!-- Full Review Textarea -->
                     <div>
                         <label class="block text-sm font-medium text-stone-700 mb-2">Your Full Review</label>
                         <textarea name="full-review" rows="6" placeholder="Write your comprehensive review here..." required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"></textarea>
                     </div>
 
-                    <!-- Buttons -->
                     <div class="pt-4 flex justify-between">
                         <button type="button" onclick="hidePostReviewModal()" class="bg-stone-300 text-stone-700 px-4 py-2 rounded-lg font-semibold hover:bg-stone-400 transition-colors">
                             Cancel
@@ -615,7 +190,6 @@
         </div>
     </div>
 
-    <!-- Modal 3: Simple View Modal (for View More action in post list) -->
     <div id="simple-view-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'simple-view-modal') hideSimpleViewModal()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow p-6 transform transition-all duration-300 scale-95 opacity-0">
             <h3 id="view-title" class="text-3xl font-bold text-stone-800 mb-1"></h3>
@@ -626,9 +200,7 @@
         </div>
     </div>
 
-    <!-- Confirmation/Message Box -->
     <div id="message-box" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300 opacity-0 hidden" role="alert">
-        <!-- Message content here -->
     </div>
 </body>
 </html>

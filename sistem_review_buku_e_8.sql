@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 08, 2025 at 09:41 AM
+-- Generation Time: Dec 13, 2025 at 12:47 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -30,7 +30,7 @@ SET time_zone = "+00:00";
 CREATE TABLE `akun` (
   `id` varchar(11) NOT NULL,
   `username` varchar(11) NOT NULL,
-  `password` varchar(11) NOT NULL,
+  `password` varchar(255) NOT NULL,
   `fullname` varchar(50) NOT NULL,
   `email` varchar(255) NOT NULL,
   `role` varchar(10) NOT NULL,
@@ -43,7 +43,11 @@ CREATE TABLE `akun` (
 
 INSERT INTO `akun` (`id`, `username`, `password`, `fullname`, `email`, `role`, `gambar`) VALUES
 ('1', 'saski', '12345678', 'saskia pippi', 'saskia@gmail.com', 'anggota', '-'),
-('2', 'lia', '12345678', 'Gretelia Faustine', 'Lia@gmail.com', 'anggota', '-\r\n');
+('2', 'lia', '12345678', 'Gretelia Faustine', 'Lia@gmail.com', 'anggota', '-\r\n'),
+('3', 'a', '$2y$10$OtgJ', 'a', 'a@a', 'anggota', '-'),
+('4', 'asd', '$2y$10$gkU8', 'asd', 'asd@a', 'anggota', '-'),
+('5', 'q', '$2y$10$/bs5', 'q', 'q@q', 'anggota', '-'),
+('6', 'e', '$2y$10$K0H2GNrQWNENzO0X49kbqeU1td1kY96HoUe4kXNNXBq9kFlgSJvyW', 'e', 'e@e', 'anggota', '-');
 
 -- --------------------------------------------------------
 
@@ -69,7 +73,8 @@ CREATE TABLE `review` (
 --
 
 INSERT INTO `review` (`id`, `judul`, `penulis`, `penerbit`, `tahun_terbit`, `komentar`, `bintang`, `gambar`, `tanggal_komentar`, `id_akun`) VALUES
-('1', 'qwerty', 'qwerty', 'qwerty', 2009, 'g tau', 5, '-', '19 Dec 2005', '1');
+('1', 'qwerty', 'qwerty', 'qwerty', 2009, 'g tau', 5, '-', '19 Dec 2005', '1'),
+('2', 'buku 1 e', 'e', 'ew', 0, 'wefaf\n', 4, '-', '13 Dec 2025', '6');
 
 --
 -- Indexes for dumped tables
@@ -87,8 +92,7 @@ ALTER TABLE `akun`
 -- Indexes for table `review`
 --
 ALTER TABLE `review`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `id_akun` (`id_akun`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Constraints for dumped tables

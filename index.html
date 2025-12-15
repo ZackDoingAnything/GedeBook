@@ -1,487 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GedeBook - Cozy Book Reviews</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GedeBook – Cozy Book Reviews</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-    <style>
-        /* Custom styles for the cozy aesthetic */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f3f0; /* Cozy light beige background */
-        }
-        .scroll-hidden::-webkit-scrollbar {
-            display: none;
-        }
-        .scroll-hidden {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
-        .cozy-shadow {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        /* New: Deeper shadow for the 'book cover' image to make it pop */
-        .cozy-book-shadow {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06), 4px 4px 10px rgba(0, 0, 0, 0.2);
-        }
-        /* Style for the search input to push text right of the icon */
-        #search-input {
-            padding-left: 3rem; /* Make space for the icon */
-        }
-        /* Floating Action Button (FAB) styles */
-        .fab {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            width: 4rem;
-            height: 4rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 30;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .fab:hover {
-            transform: scale(1.05);
-            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.3);
-        }
-    </style>
-    <script>
-        // FUNCTION to check authentication status and admin status
-        const isLoggedIn = () => localStorage.getItem('isLoggedIn') === 'true';
-        const isAdmin = () => isLoggedIn() && localStorage.getItem('isAdmin') === 'true';
-
-        // *** NEW: Variable to store data fetched from the API ***
-        let loadedReviewsData = [];
-
-        // Function to fetch reviews from the server
-        const fetchReviews = async () => {
-            try {
-                // Fetch data from the new PHP API
-                const response = await fetch('api.php?action=get_reviews');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                // Update the global data variable
-                loadedReviewsData = await response.json();
-                console.log("Reviews loaded from database:", loadedReviewsData);
-                
-            } catch (error) {
-                console.error("Failed to fetch reviews:", error);
-                window.showMessage(`Error loading reviews: ${error.message}. Is XAMPP running?`, true);
-                loadedReviewsData = []; 
-            }
-        };
-
-
-        // Utility function to generate star icons
-        const getStarsHtml = (count) => {
-            const fullStar = '<span class="text-amber-500">★</span>';
-            const emptyStar = '<span class="text-gray-300">★</span>';
-            // Ensure count is between 0 and 5
-            const validCount = Math.min(5, Math.max(0, count)); 
-            return fullStar.repeat(validCount) + emptyStar.repeat(5 - validCount);
-        };
-
-        const renderCards = (filteredReviews) => {
-            const container = document.getElementById('review-cards-container');
-            if (!container) return;
-            
-            const reviewsToRender = filteredReviews || loadedReviewsData;
-
-            if (reviewsToRender.length === 0) {
-                 container.innerHTML = `
-                    <div class="col-span-full p-8 text-center bg-white/70 rounded-xl border border-stone-200 text-stone-600">
-                        <p class="text-xl font-semibold mb-2">No Reviews Found</p>
-                        <p>Try adjusting your search terms or star rating filter, or check your database connection.</p>
-                    </div>
-                 `;
-                 return;
-            }
-
-            container.innerHTML = reviewsToRender.map(review => `
-                <div 
-                    class="review-card bg-white rounded-xl cozy-shadow transition-all duration-300 hover:cozy-shadow hover:scale-[1.01] cursor-pointer flex flex-col"
-                    data-id="${review.id}"
-                    onclick="showModal('${review.id}')"
-                >
-                    <div class="p-4 flex flex-col gap-3 h-full">
-                        
-                        <div class="text-center">
-                            <h2 class="text-xl font-bold text-stone-800 leading-tight">${review.title}</h2>
-                            <p class="text-sm text-stone-500 font-medium italic">by ${review.author}</p>
-                        </div>
-
-                        <div class="flex-shrink-0 w-32 h-48 rounded-lg ${review.imageBg || 'bg-amber-800/40'} flex items-center justify-center border border-gray-100 cozy-book-shadow mx-auto">
-                            <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253"></path>
-                            </svg>
-                        </div>
-                        
-                        <div class="flex-grow flex flex-col">
-                            <div>
-                                
-                                <div class="mb-3 text-lg">${getStarsHtml(review.stars)}</div>
-                                
-                                <p class="text-base text-stone-600 line-clamp-3 mb-4">
-                                    <span class="font-semibold text-stone-700">Reviewer: ${review.reviewer}</span> — ${review.snippet}
-                                </p>
-                            </div>
-                            
-                            <p class="mt-auto text-sm text-amber-600 hover:text-amber-700 font-semibold transition-colors duration-200">
-                                Click to read full review &rarr;
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        };
-
-        // Function to handle filtering and then rendering (MODIFIED FOR ASYNC FETCH)
-        window.updateDisplay = async () => {
-            // 1. Fetch data on first run
-            if (loadedReviewsData.length === 0) {
-                // Wait for data to load before continuing
-                await fetchReviews(); 
-            }
-            
-            // Use loadedReviewsData for filtering
-            const reviewsToFilter = loadedReviewsData; 
-
-            const searchInput = document.getElementById('search-input');
-            const starFilter = document.getElementById('star-filter');
-            
-            if (!searchInput || !starFilter) {
-                renderCards(reviewsToFilter);
-                return;
-            }
-
-            const searchTerm = searchInput.value.toLowerCase();
-            const selectedStars = starFilter.value; 
-
-            // 2. Filter Logic
-            const filteredReviews = reviewsToFilter.filter(review => {
-                // Search area now includes the reviewer's username
-                const searchArea = `${review.title} ${review.author} ${review.reviewer}`.toLowerCase(); 
-                const matchesSearch = searchArea.includes(searchTerm);
-                const matchesRating = selectedStars === "0" || review.stars === parseInt(selectedStars, 10);
-
-                return matchesSearch && matchesRating;
-            });
-            
-            // 3. Render Cards
-            renderCards(filteredReviews);
-        };
-        
-        // Modal functions (MODIFIED to use fetched data fields)
-        window.showModal = (id) => {
-            // Use loose comparison for string/number match on IDs
-            const review = loadedReviewsData.find(r => r.id == id); 
-            if (!review) return;
-
-            const modal = document.getElementById('review-modal');
-            const modalContainer = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            
-            if (!modal || !modalContainer || !content) return; 
-            
-            // --- UPDATED MODAL CONTENT INJECTION ---
-            content.innerHTML = `
-                <div class="p-6 md:p-8 border-b border-stone-100 flex items-start justify-between">
-                    <div>
-                        <h3 class="text-3xl font-bold text-stone-800 mb-1">${review.title}</h3>
-                        <p class="text-lg text-stone-500 italic">by ${review.author}</p>
-                    </div>
-                    <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hideModal()">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="p-6 md:p-8 scroll-hidden overflow-y-auto max-h-[70vh]">
-
-                    <div class="mb-8 h-64 w-40 mx-auto rounded-lg ${review.imageBg || 'bg-amber-800/40'} opacity-50 flex items-center justify-center text-xl text-white font-semibold italic cozy-book-shadow">
-                        "A Book's Journey"
-                    </div>
-
-                    <div class="mb-6 p-4 bg-stone-50 rounded-lg border border-stone-100 text-stone-700 text-sm grid grid-cols-2 gap-2">
-                        <div class="font-semibold">Publisher:</div>
-                        <div>${review.publisher || 'N/A'}</div> 
-                        <div class="font-semibold">Publication Date:</div>
-                        <div>${review.publicationDate || 'N/A'}</div> 
-                    </div>
-
-
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 pb-4 border-b border-stone-100">
-                         <div class="mb-2 sm:mb-0">
-                            <span class="text-base font-semibold text-stone-700">Reviewer:</span>
-                            <span class="text-base text-amber-600 ml-1">${review.reviewer}</span>
-                        </div>
-                        <div class="text-xl">${getStarsHtml(review.stars)}</div>
-                    </div>
-
-                    <p class="text-lg text-stone-600 whitespace-pre-wrap leading-relaxed">${review.fullReview}</p>
-                    
-                </div>
-            `;
-            // --- END UPDATED MODAL CONTENT INJECTION ---
-
-            modal.classList.remove('hidden');
-            // Trigger animation
-            setTimeout(() => {
-                // Ensure the inner container becomes visible
-                modalContainer.classList.remove('scale-95', 'opacity-0');
-                modalContainer.classList.add('scale-100', 'opacity-100');
-            }, 10); 
-            document.body.classList.add('overflow-hidden');
-        };
-
-        window.hideModal = () => {
-            const modal = document.getElementById('review-modal');
-            const modalContainer = document.getElementById('modal-container');
-
-            if (!modal || !modalContainer) return;
-
-            // Start exit animation
-            modalContainer.classList.remove('scale-100', 'opacity-100');
-            modalContainer.classList.add('scale-95', 'opacity-0');
-            
-            // Wait for the transition to finish before hiding the container
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                document.body.classList.remove('overflow-hidden');
-            }, 300); 
-        };
-
-        // --- NEW: Review Posting Modal Logic (for FAB) ---
-        let currentReviewStars = 0;
-
-        window.showPostReviewModal = () => {
-            document.getElementById('post-modal-title').innerText = "Make a Review!";
-            document.getElementById('post-review-form').reset();
-            currentReviewStars = 0;
-            updateStarRating(0); // Reset stars
-            document.getElementById('post-review-modal').classList.remove('hidden');
-            // Show modal animation (omitted for brevity, similar to showModal)
-        };
-        
-        window.hidePostReviewModal = () => {
-            document.getElementById('post-review-modal').classList.add('hidden');
-        };
-
-        window.updateStarRating = (rating) => {
-            currentReviewStars = rating;
-            const starContainer = document.getElementById('star-selector-container');
-            starContainer.innerHTML = '';
-            for (let i = 1; i <= 5; i++) {
-                const star = document.createElement('span');
-                star.className = 'text-3xl cursor-pointer transition-colors';
-                star.style.color = i <= rating ? '#f59e0b' : '#d1d5db'; // amber-500 or gray-300
-                star.innerHTML = '★';
-                star.onclick = () => updateStarRating(i);
-                starContainer.appendChild(star);
-            }
-        };
-        
-        // Mock success/failure message display
-        window.showMessage = (message, isError = false) => {
-            const msgBox = document.getElementById('message-box');
-            msgBox.textContent = message;
-            msgBox.className = isError 
-                ? 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-red-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300'
-                : 'fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300';
-            msgBox.classList.remove('opacity-0', 'hidden');
-            setTimeout(() => {
-                msgBox.classList.add('opacity-0');
-                setTimeout(() => msgBox.classList.add('hidden'), 300);
-            }, 3000);
-        };
-
-        window.handlePostReview = async () => {
-            event.preventDefault();
-            const form = document.getElementById('post-review-form');
-            const title = form.elements['book-title'].value;
-            const author = form.elements['author'].value;
-            const fullReview = form.elements['full-review'].value;
-            
-            // NEW FIELDS
-            const publisher = form.elements['publisher'].value;
-            const publicationDate = form.elements['publish-date'].value; // Currently collects text/year
-
-            if (!title || currentReviewStars === 0 || !fullReview) {
-                window.showMessage("Please fill out the title, review, and star rating.", true);
-                return;
-            }
-            
-            const reviewerId = localStorage.getItem('userId');
-
-            if (!reviewerId) {
-                window.showMessage("You must be logged in to post a review.", true);
-                return;
-            }
-
-            try {
-                const response = await fetch('api.php?action=post_review', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: title,
-                        author: author,
-                        stars: currentReviewStars,
-                        fullReview: fullReview,
-                        reviewerId: reviewerId, 
-                        // ** NEW DATA FIELDS **
-                        publisher: publisher,
-                        publicationDate: publicationDate 
-                    })
-                });
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    window.hidePostReviewModal();
-                    window.showMessage(`Review for "${title}" posted successfully!`);
-                    
-                    // Force refresh data from the server
-                    loadedReviewsData = []; 
-                    await window.updateDisplay();
-
-                } else {
-                    window.showMessage(`Post failed: ${result.message}`, true);
-                }
-
-            } catch (error) {
-                console.error("Submission error:", error);
-                window.showMessage("Failed to connect to the server. Check api.php.", true);
-            }
-        };
-        
-        // --- END Review Posting Modal Logic ---
-
-        // Function to render the correct header and floating button based on login status
-        window.renderUI = () => {
-            const headerNav = document.getElementById('header-nav');
-            const fabContainer = document.getElementById('fab-container');
-            const profileLink = isAdmin() ? 'admin.html' : 'profile.html';
-            const profileIconColor = isAdmin() ? 'text-amber-700' : 'text-amber-600';
-
-            if (isLoggedIn()) {
-                // LOGGED IN STATE UI
-                headerNav.innerHTML = `
-                    <a href="${profileLink}" class="p-2 rounded-full bg-stone-100 hover:bg-stone-200 transition-colors cozy-shadow">
-                        <svg class="w-6 h-6 ${profileIconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </a>
-                `;
-                
-                // NEW LOGIC: Only show FAB if NOT Admin
-                if (!isAdmin()) {
-                    fabContainer.innerHTML = `
-                        <button 
-                            class="fab bg-amber-600 text-white cozy-shadow"
-                            onclick="showPostReviewModal()"
-                        >
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                            </svg>
-                        </button>
-                    `;
-                } else {
-                    // Hide FAB for Admin
-                    fabContainer.innerHTML = '';
-                }
-                
-            } else {
-                // LOGGED OUT STATE UI
-                headerNav.innerHTML = `
-                    <a 
-                        href="login.html" 
-                        class="text-stone-600 hover:text-amber-700 font-medium transition-colors"
-                    >
-                        Log In
-                    </a>
-                    
-                    <a 
-                        href="signup.html"
-                        class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors cozy-shadow"
-                    >
-                        Sign Up
-                    </a>
-                `;
-                fabContainer.innerHTML = `
-                    <a 
-                        href="login.html" 
-                        class="fab bg-amber-600 text-white cozy-shadow"
-                    >
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                        </svg>
-                    </a>
-                `;
-            }
-        };
-
-        // Initial call to render the cards and the UI state
-        document.addEventListener('DOMContentLoaded', () => {
-            window.updateDisplay();
-            window.renderUI();
-        });
-
-    </script>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/indexScripts.js" defer></script>
 </head>
+
 <body>
 
-    <header class="bg-white/95 sticky top-0 z-20 cozy-shadow backdrop-blur-sm">
-        <div class="max-w-4xl mx-auto p-4 flex justify-between items-center">
-            
-            <div class="flex items-center space-x-3">
-                <img 
-                    src="./images/logo.png" 
-                    alt="GedeBook Logo" 
-                    class="h-8 w-auto rounded-md shadow-md" 
-                    onerror="this.onerror=null; this.src='https://placehold.co/40x40/6d3d1e/ffffff?text=GB';"
-                >
+    <header class="sticky top-0 z-20 bg-white/95 backdrop-blur-sm cozy-shadow">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+
+            <div class="flex items-center gap-3">
+                <img
+                    src="./images/logo.png"
+                    alt="GedeBook Logo"
+                    class="h-8 w-auto rounded-md shadow-md"
+                    onerror="this.onerror=null;this.src='https://placehold.co/40x40/6d3d1e/ffffff?text=GB';"
+                />
                 <a href="index.html" class="text-3xl font-extrabold text-amber-800 tracking-wider">
                     GedeBook
                 </a>
             </div>
 
-            <nav id="header-nav" class="flex items-center space-x-4">
-                </nav>
+            <nav id="header-nav" class="flex items-center gap-4"></nav>
+
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto py-8 px-4">
-        
-        <section class="mb-8 p-6 bg-stone-100/70 rounded-xl border border-stone-200">
-            <h2 class="text-2xl font-semibold text-stone-800 mb-2">Welcome to GedeBook!</h2>
-            <p class="text-stone-600">Find your next great read and share your literary journey with a community of book lovers. Dive into the latest reviews below.</p>
+    <main class="max-w-4xl mx-auto px-4 py-8">
+
+        <section class="mb-8 p-6 bg-stone-100/70 border border-stone-200 rounded-xl">
+            <h2 class="text-2xl font-semibold text-stone-800 mb-2">
+                Welcome to GedeBook!
+            </h2>
+            <p class="text-stone-600">
+                Find your next great read and share your literary journey with a community of book lovers.
+            </p>
         </section>
 
         <section class="mb-8 flex flex-col sm:flex-row gap-4">
+
             <div class="relative flex-grow">
-                <input 
-                    type="text" 
-                    id="search-input" 
+                <input
+                    id="search-input"
+                    type="text"
                     placeholder="Search by title, author, or reviewer..."
-                    class="w-full p-3 border border-stone-300 rounded-lg cozy-shadow focus:ring-amber-500 focus:border-amber-500 transition-shadow"
+                    class="w-full py-3 pl-12 border border-stone-300 rounded-lg cozy-shadow focus:ring-amber-500 focus:border-amber-500"
                     oninput="updateDisplay()"
+                />
+                <svg
+                    class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                 >
-                <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
             </div>
-            
-            <select 
-                id="star-filter" 
-                class="w-full sm:w-48 p-3 border border-stone-300 rounded-lg cozy-shadow bg-white focus:ring-amber-500 focus:border-amber-500 transition-shadow"
+
+            <select
+                id="star-filter"
+                class="w-full sm:w-48 p-3 border border-stone-300 rounded-lg cozy-shadow bg-white focus:ring-amber-500 focus:border-amber-500"
                 onchange="updateDisplay()"
             >
                 <option value="0">Rating: All</option>
@@ -491,77 +77,35 @@
                 <option value="2">★★☆☆☆ (2 Stars)</option>
                 <option value="1">★☆☆☆☆ (1 Star)</option>
             </select>
+
         </section>
 
-        <section id="review-cards-container" class="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-3">
-            </section>
-        
-        <div class="h-16"></div>
+        <section
+            id="review-cards-container"
+            class="grid grid-cols-2 md:grid-cols-3 gap-6"
+        ></section>
+
+        <div class="h-20"></div>
     </main>
 
-    <div id="fab-container">
-        </div>
-
-    <div id="review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'review-modal') hideModal()">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-0" id="modal-container">
+    <div
+        id="review-modal"
+        class="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center hidden"
+        onclick="if(event.target.id==='review-modal') hideModal()"
+    >
+        <div
+            id="modal-container"
+            class="bg-white w-full max-w-lg mx-4 rounded-xl cozy-shadow transform transition-all scale-95 opacity-0"
+        >
             <div id="modal-content"></div>
         </div>
     </div>
-    
-    <div id="post-review-modal" class="fixed inset-0 z-50 bg-stone-900 bg-opacity-50 flex items-center justify-center hidden" onclick="if(event.target.id === 'post-review-modal') hidePostReviewModal()">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 cozy-shadow transform transition-all duration-300 scale-95 opacity-100">
-            <div class="p-6 border-b border-stone-100 flex items-start justify-between">
-                <h3 id="post-modal-title" class="text-2xl font-bold text-amber-800">Make a Review!</h3>
-                <button class="text-stone-400 hover:text-stone-700 transition-colors" onclick="hidePostReviewModal()">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="p-6 scroll-hidden overflow-y-auto max-h-[80vh]">
-                <form id="post-review-form" onsubmit="handlePostReview(); return false;" class="space-y-4">
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="book-title" placeholder="Book Title (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
-                        <input type="text" name="author" placeholder="Author (Required)" required class="col-span-2 p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
-                    </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-stone-700 mb-2">Your Rating (1-5 Stars)</label>
-                        <div id="star-selector-container" class="flex space-x-2 text-3xl">
-                            </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input type="text" name="publisher" placeholder="Publisher (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
-                        <input type="text" name="publish-date" placeholder="Publication Date (Optional)" class="p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
-                    </div>
+    <div
+        id="message-box"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-3 bg-amber-600 text-white rounded-lg cozy-shadow hidden opacity-0"
+        role="alert"
+    ></div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-stone-700 mb-2">Book Image (Optional)</label>
-                        <input type="file" name="book-image" accept="image/*" class="w-full text-stone-700 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-stone-700 mb-2">Your Full Review</label>
-                        <textarea name="full-review" rows="6" placeholder="Write your comprehensive review here..." required class="w-full p-3 border border-stone-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"></textarea>
-                    </div>
-
-                    <div class="pt-4 flex justify-between">
-                        <button type="button" onclick="hidePostReviewModal()" class="bg-stone-300 text-stone-700 px-4 py-2 rounded-lg font-semibold hover:bg-stone-400 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit" class="bg-amber-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-amber-700 transition-colors cozy-shadow">
-                            Post Review
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="message-box" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 bg-amber-600 text-white rounded-lg cozy-shadow z-50 transition-opacity duration-300 opacity-0 hidden" role="alert">
-        </div>
 </body>
 </html>

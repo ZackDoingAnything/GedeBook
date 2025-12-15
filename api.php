@@ -3,7 +3,6 @@ include 'db_connect.php';
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
-// Function to generate a simple, sequential ID for new records (since 'id' is VARCHAR)
 function generateNextId($conn, $table) {
     $sql = "SELECT MAX(CAST(id AS UNSIGNED)) AS max_id FROM $table";
     $result = $conn->query($sql);
@@ -12,7 +11,6 @@ function generateNextId($conn, $table) {
     return (string)$nextId;
 }
 
-// --- HELPER FUNCTION: Fetch Reviews by User ID (UPDATED FOR ADMIN) ---
 function fetchUserReviews($conn, $userId, $isAdmin = false) {
     $userId = $conn->real_escape_string($userId);
     $sql = "SELECT 
@@ -34,23 +32,23 @@ function fetchUserReviews($conn, $userId, $isAdmin = false) {
     if ($result->num_rows > 0) {
         while($row = $result->fetch_assoc()) {
             
-            // Determine output structure based on whether it's for Admin or Profile
+            
             $review = [
                 'id' => $row['id'],
                 'stars' => (int)$row['bintang'],
                 'date' => $row['tanggal_komentar'],
                 'imageBg' => 'bg-amber-800/40',
-                'fullReview' => $row['komentar'] // Include full review text for Admin modal
+                'fullReview' => $row['komentar'] 
             ];
             
             if ($isAdmin) {
                 $review['book'] = $row['judul'];
-                $review['snippet'] = substr($row['komentar'], 0, 50) . '...'; // Shorter snippet for Admin list
-                // Mock Flagging for Admin
+                $review['snippet'] = substr($row['komentar'], 0, 50) . '...'; 
+                
                 if ($review['book'] === 'Moby Dick') {
                     $review['reason'] = 'Hateful content';
                 }
-            } else { // For Profile page
+            } else { 
                 $review['title'] = $row['judul'];
                 $review['author'] = $row['penulis'];
                 $review['publisher'] = $row['penerbit'];
@@ -64,7 +62,6 @@ function fetchUserReviews($conn, $userId, $isAdmin = false) {
     return $reviews;
 }
 
-// --- ACTION: 1. GET ALL REVIEWS (for index.html feed) ---
 if ($action == 'get_reviews') {
     $sql = "SELECT 
                 r.id, r.judul, r.penulis, r.penerbit, r.tahun_terbit, r.bintang, r.komentar, a.username 
@@ -78,10 +75,10 @@ if ($action == 'get_reviews') {
     if ($result->num_rows > 0) {
         while($row = $result->fetch_assoc()) {
             $reviews[] = [
-                'id' => (int)$row['id'],                  
+                'id' => (int)$row['id'],           
                 'title' => $row['judul'],
                 'author' => $row['penulis'],
-                'publisher' => $row['penerbit'],            
+                'publisher' => $row['penerbit'],         
                 'publicationDate' => $row['tahun_terbit'], 
                 'stars' => (int)$row['bintang'],
                 'fullReview' => $row['komentar'],
@@ -95,13 +92,13 @@ if ($action == 'get_reviews') {
 
 } 
 
-// --- ACTION: 2. USER LOGIN ---
 else if ($action == 'login' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $email = $conn->real_escape_string($data['email']);
-    $password = $conn->real_escape_string($data['password']); 
+    $password = $data['password']; 
     $ADMIN_EMAIL = 'admin@gede.book';
     $ADMIN_PASSWORD = 'gebukinadmin';
+    
     
     if ($email === $ADMIN_EMAIL && $password === $ADMIN_PASSWORD) {
         echo json_encode(["success" => true, "user" => [
@@ -110,19 +107,19 @@ else if ($action == 'login' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         return;
     }
 
-    $sql = "SELECT id, username, fullname, email, role FROM akun WHERE email = '$email' AND password = '$password'";
+    
+    $sql = "SELECT id, username, fullname, email, role, password FROM akun WHERE email = '$email'";
     $result = $conn->query($sql);
 
     if ($result && $result->num_rows == 1) {
         $user = $result->fetch_assoc();
-        $hashed_password_from_db = $user['password'];
+        $stored_hash = $user['password'];
+
         
-        if (password_verify($password, $hashed_password_from_db)) {
-            // Hapus password hash dari array sebelum dikirim ke client
+        if (password_verify($password, $stored_hash)) {
             unset($user['password']); 
             echo json_encode(["success" => true, "user" => $user]);
         } else {
-            // Password salah
             http_response_code(401);
             echo json_encode(["success" => false, "message" => "Invalid email or password."]);
         }
@@ -132,12 +129,11 @@ else if ($action == 'login' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 } 
 
-// --- ACTION: 3. USER SIGNUP ---
 else if ($action == 'signup' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $username = $conn->real_escape_string($data['username']);
     $email = $conn->real_escape_string($data['email']);
-    $password = $conn->real_escape_string($data['password']);
+    $password = $data['password']; 
     $fullname = $conn->real_escape_string($data['fullname']); 
     
     $check_sql = "SELECT id FROM akun WHERE username = '$username' OR email = '$email'";
@@ -149,10 +145,13 @@ else if ($action == 'signup' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         return;
     }
 
-    $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+    
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+    $hashed_password_escaped = $conn->real_escape_string($hashed_password);
 
     $new_id = generateNextId($conn, 'akun'); 
-    $insert_sql = "INSERT INTO akun (id, username, password, fullname, email, role, gambar) VALUES ('$new_id', '$username', '$hashed_password', '$fullname', '$email', 'anggota', '-')";
+    
+    $insert_sql = "INSERT INTO akun (id, username, password, fullname, email, role, gambar) VALUES ('$new_id', '$username', '$hashed_password_escaped', '$fullname', '$email', 'anggota', '-')";
 
     if ($conn->query($insert_sql) === TRUE) {
         echo json_encode(["success" => true, "message" => "Account created successfully. Please log in."]);
@@ -162,7 +161,6 @@ else if ($action == 'signup' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// --- ACTION: 4. POST NEW REVIEW ---
 else if ($action == 'post_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
 
@@ -205,7 +203,6 @@ else if ($action == 'post_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// --- ACTION: 5. GET USER PROFILE DATA ---
 else if ($action == 'get_user_data') {
     $userId = isset($_GET['user_id']) ? $conn->real_escape_string($_GET['user_id']) : null;
     if (!$userId) {
@@ -224,9 +221,9 @@ else if ($action == 'get_user_data') {
         $count_result = $conn->query($count_sql);
         $total_reviews = $count_result->fetch_assoc()['total_reviews'];
 
-        // Pass false to fetchUserReviews for the regular user profile structure
+        
         $user_reviews = fetchUserReviews($conn, $userId, false); 
-        // NOTE: Member since is hardcoded for now, assuming the database doesn't track signup date.
+        
         $user['member_since'] = "Nov 2024"; 
 
         echo json_encode(["success" => true, "user" => $user, "total_reviews" => (int)$total_reviews, "reviews" => $user_reviews]);
@@ -237,7 +234,6 @@ else if ($action == 'get_user_data') {
     }
 }
 
-// --- ACTION: 6. DELETE REVIEW (User-specific) ---
 else if ($action == 'delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $reviewId = $conn->real_escape_string($data['reviewId'] ?? '');
@@ -264,7 +260,6 @@ else if ($action == 'delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// --- ACTION: 7. EDIT/UPDATE REVIEW ---
 else if ($action == 'edit_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
 
@@ -307,9 +302,8 @@ else if ($action == 'edit_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 
-// --- ACTION: 8. GET ADMIN DASHBOARD STATS (MOCKED) ---
 else if ($action == 'get_admin_stats') {
-    // NOTE: Returning the existing MOCK data structure to enable chart rendering.
+    
     $stats = [
         ['month' => 'Jul', 'posts' => 150, 'accounts' => 50, 'visitors' => 2500],
         ['month' => 'Aug', 'posts' => 180, 'accounts' => 70, 'visitors' => 3100],
@@ -321,7 +315,6 @@ else if ($action == 'get_admin_stats') {
     echo json_encode(["success" => true, "stats" => $stats]);
 }
 
-// --- ACTION: 9. GET ALL USERS (for Admin list) ---
 else if ($action == 'get_all_users') {
     $sql = "SELECT id, username, fullname, email, role FROM akun WHERE id != '999' ORDER BY id ASC";
     $result = $conn->query($sql);
@@ -349,7 +342,6 @@ else if ($action == 'get_all_users') {
     echo json_encode(["success" => true, "users" => $users]);
 }
 
-// --- ACTION: 10. GET A SPECIFIC USER'S REVIEWS (for Admin detail panel) ---
 else if ($action == 'get_user_reviews_admin') {
     $userId = isset($_GET['user_id']) ? $conn->real_escape_string($_GET['user_id']) : null;
     if (!$userId) {
@@ -362,7 +354,6 @@ else if ($action == 'get_user_reviews_admin') {
     echo json_encode(["success" => true, "reviews" => $reviews]);
 }
 
-// --- ACTION: 11. ADMIN DELETE ANY REVIEW ---
 else if ($action == 'admin_delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $reviewId = $conn->real_escape_string($data['reviewId'] ?? '');
@@ -388,7 +379,6 @@ else if ($action == 'admin_delete_review' && $_SERVER['REQUEST_METHOD'] == 'POST
     }
 }
 
-// --- ACTION: 12. ADMIN DELETE USER ---
 else if ($action == 'admin_delete_user' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $userId = $conn->real_escape_string($data['userId'] ?? '');
@@ -398,6 +388,8 @@ else if ($action == 'admin_delete_user' && $_SERVER['REQUEST_METHOD'] == 'POST')
         echo json_encode(["success" => false, "message" => "User ID required for deletion."]);
         return;
     }
+    
+    
     
     $sql = "DELETE FROM akun WHERE id = '$userId'";
     
@@ -414,7 +406,6 @@ else if ($action == 'admin_delete_user' && $_SERVER['REQUEST_METHOD'] == 'POST')
     }
 }
 
-// --- ACTION: 13. USER PROFILE UPDATE (NEW) ---
 else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     
@@ -430,12 +421,12 @@ else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         return;
     }
 
-    // 1. Start building the update query
+    
     $updateFields = [];
     $updateFields[] = "fullname = '$fullname'";
     $updateFields[] = "username = '$username'";
     
-    // 2. Handle password change
+    
     if (!empty($newPassword)) {
         if (empty($oldPassword)) {
             http_response_code(400);
@@ -443,7 +434,7 @@ else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             return;
         }
 
-        // Fetch current password (NOTE: Assuming plain text password for comparison as per existing login logic)
+        
         $passwordCheckSql = "SELECT password FROM akun WHERE id = '$userId'";
         $result = $conn->query($passwordCheckSql);
         
@@ -454,31 +445,33 @@ else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         $user = $result->fetch_assoc();
+        $stored_hash = $user['password'];
         
-        // Simple plain-text password comparison
-        if (!password_verify($oldPassword, $user['password'])) {
+        
+        if (!password_verify($oldPassword, $stored_hash)) {
             http_response_code(401);
             echo json_encode(["success" => false, "message" => "Incorrect current password."]);
             return;
         }
 
-        // Add new password to update fields (Note: If using real hashing like password_hash, that implementation would go here)
-        $hashedNewPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-        $updateFields[] = "password = '$hashedNewPassword'";
+        
+        $new_hashed_password = password_hash($newPassword, PASSWORD_DEFAULT);
+        $new_hashed_password_escaped = $conn->real_escape_string($new_hashed_password);
+        $updateFields[] = "password = '$new_hashed_password_escaped'";
     }
 
-    // 3. Construct and execute the final update query
+    
     $sql = "UPDATE akun SET " . implode(', ', $updateFields) . " WHERE id = '$userId'";
 
     if ($conn->query($sql) === TRUE) {
         if ($conn->affected_rows > 0 || (empty($newPassword) && count($updateFields) > 0)) {
             echo json_encode(["success" => true, "message" => "Profile updated successfully."]);
         } else {
-             // This might happen if they submit the form but change nothing
+             
             echo json_encode(["success" => true, "message" => "Profile saved, but no changes detected."]);
         }
     } else {
-        // Check for duplicate username error (mocked error code based on common MySQL behavior)
+        
         if ($conn->errno === 1062) { 
             http_response_code(409);
             echo json_encode(["success" => false, "message" => "Username is already taken."]);
@@ -489,12 +482,10 @@ else if ($action == 'update_profile' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// --- ACTION: DEFAULT / INVALID ---
 else {
     http_response_code(400);
     echo json_encode(["error" => "Invalid or missing action parameter."]);
 }
 
 $conn->close();
-
 ?>
