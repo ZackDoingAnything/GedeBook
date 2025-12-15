@@ -73,3 +73,9 @@ Untuk menjalankan proyek ini secara lokal, diperlukan web server yang mendukung 
 ## 👨‍💻 Kontributor
 
 Terima kasih kepada seluruh kontributor yang telah berpartisipasi dalam pengembangan GedeBook.
+
+Yonatan Adi Cahyoningrat
+Saskia Pippi R. K.
+Gretelia Faustine
+Gracia Putri A.
+Velin Ceria R.
