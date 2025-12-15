@@ -74,8 +74,8 @@ Untuk menjalankan proyek ini secara lokal, diperlukan web server yang mendukung 
 
 Terima kasih kepada seluruh kontributor yang telah berpartisipasi dalam pengembangan GedeBook.
 
-Yonatan Adi Cahyoningrat
-Saskia Pippi R. K.
-Gretelia Faustine
-Gracia Putri A.
-Velin Ceria R.
+* Yonatan Adi Cahyoningrat
+* Gracia Putri A.
+* Saskia Pippi R. K.
+* Gretelia Faustine
+* Velin Ceria R.
