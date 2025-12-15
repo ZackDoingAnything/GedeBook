@@ -1,7 +1,6 @@
-# GedeBook: Sistem Review Buku
+# 📚 GedeBook: Sistem Review Buku
 
-GedeBook adalah aplikasi web sederhana yang memungkinkan pengguna untuk **mendaftar**, **login**, **melihat daftar buku**, dan **memberikan ulasan (review)** terhadap buku.  
-Aplikasi ini juga dilengkapi dengan **panel administrasi** untuk pengelolaan data.
+GedeBook adalah aplikasi web sederhana yang memungkinkan pengguna untuk **mendaftar**, **login**, **melihat daftar buku**, dan **memberikan ulasan (review)** terhadap buku. Aplikasi ini juga dilengkapi dengan **panel administrasi** untuk pengelolaan data.
 
 ---
 
@@ -10,33 +9,30 @@ Aplikasi ini juga dilengkapi dengan **panel administrasi** untuk pengelolaan dat
 Sistem ini dirancang untuk mendukung fungsionalitas utama berikut:
 
 ### 🔐 Autentikasi Pengguna
-- Pendaftaran pengguna baru (`signup.html`)
-- Login pengguna (`login.html`)
+* Pendaftaran pengguna baru (`signup.html`)
+* Login pengguna (`login.html`)
 
 ### 👤 Manajemen Profil
-- Halaman profil pengguna (`profile.html`)
+* Halaman profil pengguna (`profile.html`)
 
 ### 📚 Daftar Buku
-- Menampilkan daftar buku utama (`index.html`)
+* Menampilkan daftar buku utama (`index.html`)
 
 ### ✍️ Sistem Review
-- Memungkinkan pengguna memberikan ulasan buku  
-  (diindikasikan oleh skema database `sistem_review_buku_e_8.sql`)
+* Memungkinkan pengguna memberikan ulasan buku (diindikasikan oleh skema database `sistem_review_buku_e_8.sql`)
 
 ### 🛠️ Panel Administrasi
-- Halaman khusus administrator untuk mengelola konten dan pengguna (`admin.html`)
+* Halaman khusus administrator untuk mengelola konten dan pengguna (`admin.html`)
 
 ---
 
 ## 🧰 Teknologi yang Digunakan
 
-Proyek ini menggunakan tumpukan teknologi berikut:
-
-| Kategori   | Teknologi                     |
-|-----------|-------------------------------|
-| Frontend  | HTML, CSS, JavaScript          |
-| Backend   | PHP                            |
-| Database  | MySQL (melalui file `.sql`)    |
+| Kategori | Teknologi |
+| :--- | :--- |
+| Frontend | HTML, CSS, JavaScript |
+| Backend | PHP |
+| Database | MySQL (melalui file `.sql`) |
 
 ---
 
@@ -46,6 +42,34 @@ Untuk menjalankan proyek ini secara lokal, diperlukan web server yang mendukung 
 
 ### Langkah 1: Kloning Repositori
 
-```bash
-git clone https://github.com/ZackDoingAnything/GedeBook.git
-cd GedeBook
+### Langkah 2: Pengaturan Database
+
+1.  Buat database baru di MySQL.
+    > Contoh nama database: `gedebook`.
+2.  Impor skema database menggunakan file:
+    `sistem_review_buku_e_8.sql`
+
+### Langkah 3: Konfigurasi Koneksi Database
+
+1.  Buka file koneksi database:
+    `db_connect.php`
+2.  Sesuaikan kredensial database dengan konfigurasi lokal Anda:
+    * Host database
+    * Username database
+    * Password database
+    * Nama database
+
+### Langkah 4: Menjalankan Aplikasi
+
+1.  Pastikan Apache dan MySQL sudah berjalan.
+2.  Akses aplikasi melalui browser:
+    * **Halaman Utama**
+        `http://localhost/path/to/GedeBook/index.html`
+    * **Halaman Admin**
+        `http://localhost/path/to/GedeBook/admin.html`
+
+---
+
+## 👨‍💻 Kontributor
+
+Terima kasih kepada seluruh kontributor yang telah berpartisipasi dalam pengembangan GedeBook.
